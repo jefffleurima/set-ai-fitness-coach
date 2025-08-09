@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to provide AR form analysis during your workouts.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need microphone access for voice commands and "Hey Coach" wake word detection.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>We need motion data to enhance your workout tracking and form analysis.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>We need access to read your health data to provide comprehensive fitness tracking and personalized coaching.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>We need access to save your workout data to Apple Health for comprehensive fitness tracking.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need photo library access to save your workout videos.</string>
+	<key>OPENAI_API_KEY</key>
+	<string>YOUR_OPENAI_API_KEY_HERE</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict/>
+	</array>
+</dict>
+</plist>
+
+<!-- 
+🔧 SETUP INSTRUCTIONS FOR CONTRIBUTORS:
+
+1. Copy this template to Info.plist:
+   cp Set/Info.template.plist Set/Info.plist
+
+2. Replace "YOUR_OPENAI_API_KEY_HERE" with your actual OpenAI API key
+
+3. Never commit Info.plist with real API keys
+
+⚠️ SECURITY WARNING:
+- Info.plist should be in .gitignore to prevent API key exposure
+- Always use the template for new contributors
+-->

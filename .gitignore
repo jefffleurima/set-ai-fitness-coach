@@ -27,8 +27,10 @@ Package.resolved
 
 # Sensitive Configuration
 Set/Config.swift
+Set/Info.plist
 *.xcconfig
 !Config.template.xcconfig
+!Info.template.plist
 
 # Environment variables
 .env
