@@ -8,14 +8,28 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var selectedTab = 0
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
+            TabView {
+                ExerciseView()
+                    .tabItem {
+                        Label("Exercise", systemImage: "figure.run")
+                    }
+                MessagesView()
+                    .tabItem {
+                        Label("Chat", systemImage: "message")
+                    }
+                SummaryView()
+                    .tabItem {
+                        Label("Summary", systemImage: "chart.bar")
+                    }
+            }
+            .tint(AppTheme.primary)
+            .background(AppTheme.surface)
         }
-        .padding()
     }
 }
 
