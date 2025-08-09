@@ -72,9 +72,20 @@ We welcome contributors who share our vision of revolutionizing fitness technolo
 
 ## 📄 License
 
-This project is licensed under the MIT License with additional terms for commercial use - see the [LICENSE](LICENSE) file for details.
+This project is licensed under a **Proprietary Software License** - see the [LICENSE](LICENSE) file for complete terms.
 
-**For Commercial Use**: Contact us for licensing terms if you plan to deploy this in commercial fitness facilities or integrate into hardware products.
+### 🔒 **Key Restrictions**
+- ✅ **Contributions Welcome** - Help improve this specific project
+- ✅ **Educational Use** - Learn from the code and techniques
+- ❌ **No Commercial Use** - Cannot be used commercially without permission
+- ❌ **No Distribution** - Cannot be shared or redistributed
+- ❌ **No Competing Products** - Cannot create similar fitness/gym software
+
+### 💼 **Commercial Licensing Available**
+For business partnerships, commercial deployment, or investment opportunities:
+- **Target Market**: Fitness facilities, gym chains, smart mirror manufacturers
+- **Business Model**: B2B2C fitness technology platform
+- **Investment Stage**: Seeking funding for team expansion and hardware development
 
 ## 📞 Contact
 

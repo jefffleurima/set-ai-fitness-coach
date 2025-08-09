@@ -60,12 +60,21 @@ Set/
 - **Activity Tracking**: Apple Fitness-style activity rings with HealthKit
 - **Exercise Library**: Comprehensive workout database with instructions
 
-## 🛡️ Security Notes
+## 🛡️ Security & Legal Notes
 
+### **API Security**
 - `Config.swift` is gitignored and contains sensitive API keys
 - Never commit API keys to version control
 - Use the template file for new contributors
 - Rotate API keys regularly
+
+### **⚖️ IMPORTANT: Proprietary License**
+- This is **NOT open source** - it's proprietary software
+- You may contribute to help improve THIS project only
+- You **CANNOT** use this code for your own fitness apps
+- You **CANNOT** create competing products or smart mirrors
+- All contributions become part of the proprietary codebase
+- Read the [LICENSE](LICENSE) file carefully before contributing
 
 ## 📱 Testing
 
@@ -73,13 +82,28 @@ The app is designed for gym prototype testing:
 - Test on physical devices for best AR performance
 - Camera permissions required for AR features
 - Microphone permissions needed for voice assistant
+- **Testing is for development of THIS project only**
 
-## 🤝 Contributing
+## 🤝 Contributing Guidelines
 
+### **Before You Contribute**
+1. **Read the LICENSE** - Understand this is proprietary software
+2. **Contributor Agreement** - Your contributions help THIS project only
+3. **No Competing Use** - Cannot use knowledge gained here for other fitness apps
+
+### **How to Contribute**
 1. Follow the setup guide above
 2. Create feature branches from `main`
-3. Test thoroughly on device before submitting PRs
-4. Never commit sensitive configuration files
+3. Focus on improving the existing features and user experience
+4. Test thoroughly on device before submitting PRs
+5. Never commit sensitive configuration files
+
+### **What We're Looking For**
+- UI/UX improvements for the fitness tracking screens
+- AR form analysis enhancements
+- Voice assistant feature improvements
+- Performance optimizations for gym environments
+- Bug fixes and stability improvements
 
 ## 📞 Support
 

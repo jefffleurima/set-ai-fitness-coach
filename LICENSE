@@ -1,33 +1,81 @@
-MIT License
+PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2025 Set - AI Fitness Coach
+Copyright (c) 2025 Set - AI Fitness Coach. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+=== IMPORTANT: READ CAREFULLY BEFORE USING THIS SOFTWARE ===
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This software and associated documentation files (the "Software") contain 
+proprietary and confidential information owned by the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+=== PERMITTED USES ===
+
+1. CONTRIBUTION ONLY: You may view, study, and contribute improvements to this 
+   codebase SOLELY for the purpose of helping develop this specific project.
+
+2. EDUCATIONAL USE: You may use this code for learning and educational purposes.
+
+3. PERSONAL DEVELOPMENT: You may run this software locally for development 
+   and testing purposes only.
+
+=== STRICTLY PROHIBITED ===
+
+❌ COMMERCIAL USE: You may NOT use this software or any part of it for 
+   commercial purposes without explicit written permission.
+
+❌ DISTRIBUTION: You may NOT distribute, publish, or share this software 
+   or derivatives outside of contributions to this repository.
+
+❌ COPYING THE BUSINESS MODEL: You may NOT create competing fitness apps, 
+   smart mirror products, or gym software using concepts from this project.
+
+❌ SELLING OR LICENSING: You may NOT sell, license, or monetize this 
+   software or any derivatives.
+
+❌ PATENT APPLICATIONS: You may NOT file patents based on ideas, algorithms, 
+   or methods found in this software.
+
+=== PROPRIETARY TECHNOLOGY ===
+
+The following elements are considered proprietary trade secrets:
+- AI coaching algorithms and prompts
+- AR form analysis methods and computer vision techniques
+- Voice assistant integration and wake word processing
+- Exercise form scoring and feedback systems
+- Smart mirror integration concepts and hardware specifications
+- Business model and gym deployment strategies
+
+=== CONTRIBUTOR AGREEMENT ===
+
+By contributing to this repository, you agree that:
+1. Your contributions become part of this proprietary software
+2. You assign all rights in your contributions to the copyright holder
+3. You will not use knowledge gained from this project to create competing products
+4. You understand this is a commercial venture with investor backing
+
+=== LEGAL ENFORCEMENT ===
+
+Violation of these terms may result in:
+- Immediate termination of access to this repository
+- Legal action for damages and injunctive relief
+- Claims for misappropriation of trade secrets
+- Patent infringement claims where applicable
+
+=== CONTACT FOR LICENSING ===
+
+For commercial licensing, partnership opportunities, or investor inquiries:
+- Business Model: B2B2C fitness technology for gyms and smart mirrors
+- Target Market: Fitness facilities, gym chains, hardware manufacturers
+- Investment Stage: Seeking funding for team expansion and hardware development
+
+Contact: [Your contact information]
+
+=== DISCLAIMER ===
+
+THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. THE COPYRIGHT 
+HOLDER SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM USE OF THIS SOFTWARE.
 
 ---
 
-ADDITIONAL TERMS FOR COMMERCIAL USE:
-
-This software is intended for educational, research, and prototype development 
-purposes. For commercial deployment in fitness facilities, gyms, or as part of 
-hardware products (smart mirrors, etc.), please contact the copyright holder 
-for licensing terms.
-
-The AI coaching features, AR form analysis algorithms, and voice assistant 
-integration represent proprietary technology developed for the fitness industry.
+🔒 This license protects your business interests while allowing controlled collaboration.
+💼 Designed for startups seeking investment and commercial deployment.
+⚖️ Enforceable terms to prevent idea theft and unauthorized commercialization.
