@@ -107,7 +107,7 @@ The app is designed for gym prototype testing:
 
 ## 📞 Support
 
-For setup issues or questions, please open an issue or contact the team.
+For setup issues or questions, please open an issue or contact jefffleurima15@icloud.com.
 
 ---
 
