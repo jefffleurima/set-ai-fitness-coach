@@ -25,7 +25,7 @@ class AICoachViewModel: ObservableObject {
     private func setupInitialGreeting() {
         let greeting = ChatMessage(
             id: UUID(),
-            text: "👋 What's up? Ready to crush some goals?",
+            text: "👋 What's up? Ready to crush some goals?\n\n💡 I can help with:\n🏋️ Workout plans (daily to yearly)\n🥗 Meal planning & nutrition\n💊 Supplement recommendations\n💪 Form correction & injury prevention\n😴 Sleep & recovery optimization\n🧠 Mental health & motivation\n\nJust ask for what you need!",
             isUser: false,
             type: .greeting,
             timestamp: Date()
@@ -51,7 +51,7 @@ class AICoachViewModel: ObservableObject {
         // Update memory with user input
         updateMemory(with: text)
         
-        // Send to OpenAI with enhanced context
+        // Send to OpenAI with enhanced context - no restrictive prompt enhancement
         let enhancedContext = buildEnhancedContext()
         openAIClient.sendMessage(prompt: text, context: enhancedContext) { [weak self] result in
             DispatchQueue.main.async {
@@ -125,12 +125,18 @@ class AICoachViewModel: ObservableObject {
         let lowercased = text.lowercased()
         
         // Extract fitness goals
-        if lowercased.contains("lose weight") || lowercased.contains("weight loss") {
+        if lowercased.contains("lose weight") || lowercased.contains("weight loss") || lowercased.contains("fat loss") || lowercased.contains("lose fat") {
             userPreferences["primaryGoal"] = "weightLoss"
         } else if lowercased.contains("build muscle") || lowercased.contains("muscle gain") {
             userPreferences["primaryGoal"] = "muscleGain"
         } else if lowercased.contains("strength") {
             userPreferences["primaryGoal"] = "strength"
+        } else if lowercased.contains("abs") || lowercased.contains("core") || lowercased.contains("six pack") {
+            userPreferences["primaryGoal"] = "coreStrength"
+        } else if lowercased.contains("endurance") || lowercased.contains("stamina") {
+            userPreferences["primaryGoal"] = "endurance"
+        } else if lowercased.contains("flexibility") || lowercased.contains("mobility") {
+            userPreferences["primaryGoal"] = "flexibility"
         }
         
         // Extract experience level
@@ -138,13 +144,17 @@ class AICoachViewModel: ObservableObject {
             userPreferences["experienceLevel"] = "beginner"
         } else if lowercased.contains("advanced") || lowercased.contains("experienced") {
             userPreferences["experienceLevel"] = "advanced"
+        } else if lowercased.contains("intermediate") {
+            userPreferences["experienceLevel"] = "intermediate"
         }
         
         // Extract workout preferences
-        if lowercased.contains("home workout") || lowercased.contains("no equipment") {
+        if lowercased.contains("home workout") || lowercased.contains("no equipment") || lowercased.contains("bodyweight") {
             userPreferences["workoutType"] = "home"
         } else if lowercased.contains("gym") || lowercased.contains("equipment") {
             userPreferences["workoutType"] = "gym"
+        } else if lowercased.contains("outdoor") || lowercased.contains("park") {
+            userPreferences["workoutType"] = "outdoor"
         }
         
         // Extract time preferences
@@ -152,6 +162,48 @@ class AICoachViewModel: ObservableObject {
             userPreferences["workoutDuration"] = "short"
         } else if lowercased.contains("long") || lowercased.contains("intense") {
             userPreferences["workoutDuration"] = "long"
+        }
+        
+        // Extract nutrition preferences
+        if lowercased.contains("meal plan") || lowercased.contains("diet") || lowercased.contains("nutrition") {
+            userPreferences["nutritionFocus"] = "mealPlanning"
+        } else if lowercased.contains("protein") || lowercased.contains("supplement") {
+            userPreferences["nutritionFocus"] = "supplements"
+        } else if lowercased.contains("vegan") || lowercased.contains("vegetarian") {
+            userPreferences["dietaryRestriction"] = "plantBased"
+        } else if lowercased.contains("keto") || lowercased.contains("ketogenic") {
+            userPreferences["dietaryRestriction"] = "keto"
+        } else if lowercased.contains("paleo") {
+            userPreferences["dietaryRestriction"] = "paleo"
+        }
+        
+        // Extract body part focus
+        if lowercased.contains("abs") || lowercased.contains("core") {
+            userPreferences["bodyFocus"] = "core"
+        } else if lowercased.contains("upper body") || lowercased.contains("chest") || lowercased.contains("arms") {
+            userPreferences["bodyFocus"] = "upperBody"
+        } else if lowercased.contains("lower body") || lowercased.contains("legs") {
+            userPreferences["bodyFocus"] = "lowerBody"
+        } else if lowercased.contains("back") || lowercased.contains("shoulders") {
+            userPreferences["bodyFocus"] = "posteriorChain"
+        }
+        
+        // Extract health and wellness focus
+        if lowercased.contains("sleep") || lowercased.contains("recovery") {
+            userPreferences["wellnessFocus"] = "recovery"
+        } else if lowercased.contains("stress") || lowercased.contains("mental") {
+            userPreferences["wellnessFocus"] = "mentalHealth"
+        } else if lowercased.contains("injury") || lowercased.contains("pain") {
+            userPreferences["wellnessFocus"] = "injuryPrevention"
+        }
+        
+        // Extract time frame preferences
+        if lowercased.contains("year") || lowercased.contains("annual") {
+            userPreferences["timeFrame"] = "longTerm"
+        } else if lowercased.contains("month") || lowercased.contains("monthly") {
+            userPreferences["timeFrame"] = "mediumTerm"
+        } else if lowercased.contains("week") || lowercased.contains("weekly") {
+            userPreferences["timeFrame"] = "shortTerm"
         }
     }
     
@@ -168,6 +220,9 @@ class AICoachViewModel: ObservableObject {
         // Add user preferences context
         let preferencesContext = userPreferences.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
         
+        // Enhanced workout context for better AI responses
+        let workoutContext = buildWorkoutContext()
+        
         // Create enhanced context
         if enhancedContext != nil {
             enhancedContext = WorkoutContext(
@@ -176,11 +231,62 @@ class AICoachViewModel: ObservableObject {
                 totalSets: enhancedContext?.totalSets,
                 currentRep: enhancedContext?.currentRep,
                 formScore: enhancedContext?.formScore,
-                userQuestion: "Memory: \(memoryContext) | Preferences: \(preferencesContext)"
+                userQuestion: "Memory: \(memoryContext) | Preferences: \(preferencesContext) | Workout: \(workoutContext)"
             )
         }
         
         return enhancedContext
+    }
+    
+    private func buildWorkoutContext() -> String {
+        var context = ""
+        
+        // Add primary goal context
+        if let goal = userPreferences["primaryGoal"] as? String {
+            context += "Goal: \(goal). "
+        }
+        
+        // Add experience level context
+        if let level = userPreferences["experienceLevel"] as? String {
+            context += "Level: \(level). "
+        }
+        
+        // Add workout type context
+        if let type = userPreferences["workoutType"] as? String {
+            context += "Equipment: \(type). "
+        }
+        
+        // Add duration preference
+        if let duration = userPreferences["workoutDuration"] as? String {
+            context += "Duration: \(duration). "
+        }
+        
+        // Add body focus
+        if let focus = userPreferences["bodyFocus"] as? String {
+            context += "Focus: \(focus). "
+        }
+        
+        // Add nutrition focus
+        if let nutrition = userPreferences["nutritionFocus"] as? String {
+            context += "Nutrition: \(nutrition). "
+        }
+        
+        // Add dietary restrictions
+        if let restriction = userPreferences["dietaryRestriction"] as? String {
+            context += "Diet: \(restriction). "
+        }
+        
+        // Add wellness focus
+        if let wellness = userPreferences["wellnessFocus"] as? String {
+            context += "Wellness: \(wellness). "
+        }
+        
+        // Add time frame
+        if let timeFrame = userPreferences["timeFrame"] as? String {
+            context += "TimeFrame: \(timeFrame). "
+        }
+        
+        return context
     }
     
     private func loadUserMemory() {
@@ -285,6 +391,8 @@ class AICoachViewModel: ObservableObject {
             "workouts": workoutHistory.count
         ]
     }
+    
+    // MARK: - Enhanced Prompt Handling
 }
 
 // MARK: - Supporting Types

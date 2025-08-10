@@ -56,6 +56,13 @@ class OpenAIClient {
             case endurance = "Endurance"
             case flexibility = "Flexibility"
             case generalFitness = "General Fitness"
+            case coreStrength = "Core Strength"
+            case injuryPrevention = "Injury Prevention"
+            case sportsPerformance = "Sports Performance"
+            case rehabilitation = "Rehabilitation"
+            case nutritionOptimization = "Nutrition Optimization"
+            case sleepOptimization = "Sleep Optimization"
+            case stressManagement = "Stress Management"
         }
     }
     
@@ -64,12 +71,46 @@ class OpenAIClient {
         var humorLevel: Int = 3 // 1-5
         var technicalDetail: Int = 3 // 1-5
         var preferredWorkoutDuration: Int = 45 // minutes
+        var nutritionFocus: NutritionFocus = .balanced
+        var dietaryRestrictions: [DietaryRestriction] = []
+        var supplementPreferences: [SupplementType] = []
         
         enum CoachStyle: String, Codable {
             case strict = "Strict"
             case motivational = "Motivational"
             case friendly = "Friendly"
             case technical = "Technical"
+            case holistic = "Holistic"
+        }
+        
+        enum NutritionFocus: String, Codable {
+            case balanced = "Balanced"
+            case highProtein = "High Protein"
+            case lowCarb = "Low Carb"
+            case ketogenic = "Ketogenic"
+            case plantBased = "Plant Based"
+            case performance = "Performance"
+            case weightLoss = "Weight Loss"
+        }
+        
+        enum DietaryRestriction: String, Codable {
+            case vegan = "Vegan"
+            case vegetarian = "Vegetarian"
+            case glutenFree = "Gluten Free"
+            case dairyFree = "Dairy Free"
+            case nutFree = "Nut Free"
+            case lowFODMAP = "Low FODMAP"
+        }
+        
+        enum SupplementType: String, Codable {
+            case protein = "Protein"
+            case creatine = "Creatine"
+            case bcaa = "BCAA"
+            case preWorkout = "Pre-Workout"
+            case multivitamin = "Multivitamin"
+            case omega3 = "Omega-3"
+            case vitaminD = "Vitamin D"
+            case none = "None"
         }
     }
     
@@ -77,11 +118,22 @@ class OpenAIClient {
     func sendMessage(prompt: String, context: WorkoutContext? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         let messages = buildMessageHistory(prompt: prompt, context: context)
         
+        // Determine if this is a complex request that needs more tokens
+        let isComplexRequest = prompt.lowercased().contains("year") || 
+                              prompt.lowercased().contains("meal plan") ||
+                              prompt.lowercased().contains("comprehensive") ||
+                              prompt.lowercased().contains("detailed") ||
+                              prompt.lowercased().contains("complete") ||
+                              prompt.lowercased().contains("protein") ||
+                              prompt.lowercased().contains("supplement") ||
+                              prompt.lowercased().contains("nutrition") ||
+                              prompt.lowercased().contains("diet")
+        
         let body = RequestBody(
             model: "gpt-4o-mini", // Use fastest model
             messages: messages,
-            max_tokens: 60, // Even shorter for speed
-            temperature: 0.8 // More personality
+            max_tokens: isComplexRequest ? 4000 : 2000, // Much higher limits for complex requests
+            temperature: 0.8 // More creative and flexible
         )
         
         guard let url = URL(string: baseURL) else {
@@ -93,7 +145,7 @@ class OpenAIClient {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 10 // Even faster timeout
+        request.timeoutInterval = 30 // Increased timeout for complex responses
         
         do {
             request.httpBody = try JSONEncoder().encode(body)
@@ -154,18 +206,58 @@ class OpenAIClient {
     
     // MARK: - Private Helper Methods
     private func buildMessageHistory(prompt: String, context: WorkoutContext?) -> [Message] {
-        // System message with coach personality and context
+        // Enhanced system message with full fitness and nutrition capabilities
         let systemPrompt = """
-        You are PeakSet, an elite AI fitness coach. Be FAST, DIRECT, and EFFICIENT. Keep responses under 2 sentences unless absolutely necessary. Be brutally honest but supportive. Use gym slang and be relatable. Create instant connections through shared fitness passion. No fluff, no generic advice. Be the coach everyone wants - knowledgeable, real, and motivating. If someone's form sucks, tell them straight. If they're crushing it, hype them up. Always actionable advice. Remember: speed and authenticity over perfection.
+        You are PeakSet, an elite AI fitness coach and nutritionist with expertise in:
         
-        User level: \(userProfile.fitnessLevel.rawValue)
-        Goals: \(userProfile.goals.map { $0.rawValue }.joined(separator: ", "))
-        Style: \(userProfile.preferences.coachStyle.rawValue)
-        Context: \(context?.description ?? "General fitness consultation")
+        🏋️ FITNESS & TRAINING:
+        - Workout plans (daily, weekly, monthly, yearly)
+        - Exercise form and technique
+        - Strength training, cardio, HIIT, yoga, pilates
+        - Sports-specific training
+        - Injury prevention and rehabilitation
+        - Progressive overload and periodization
+        - Equipment recommendations (gym, home, outdoor)
+        
+        🥗 NUTRITION & DIET:
+        - Meal planning (daily, weekly, monthly, yearly)
+        - Macro and micronutrient calculations
+        - Supplement recommendations and safety
+        - Dietary restrictions and allergies
+        - Pre/post workout nutrition
+        - Weight loss, muscle gain, maintenance strategies
+        - Recipe creation and meal prep
+        - Food alternatives and substitutions
+        
+        💪 HEALTH & WELLNESS:
+        - Sleep optimization
+        - Stress management and recovery
+        - Mental health and motivation
+        - Injury prevention
+        - Mobility and flexibility
+        - Posture correction
+        - Lifestyle optimization
+        
+        🎯 RESPONSE STYLE:
+        - Be comprehensive and detailed when needed
+        - Provide actionable, specific advice
+        - Use scientific backing when relevant
+        - Be motivational and supportive
+        - Adapt to user's experience level and goals
+        - Include safety warnings when necessary
+        - Provide progression strategies and alternatives
+        
+        User Profile:
+        - Level: \(userProfile.fitnessLevel.rawValue)
+        - Goals: \(userProfile.goals.map { $0.rawValue }.joined(separator: ", "))
+        - Coach Style: \(userProfile.preferences.coachStyle.rawValue)
+        - Context: \(context?.description ?? "General fitness consultation")
+
+        IMPORTANT: You have FULL CAPABILITIES. Don't limit yourself to short responses. Provide comprehensive, detailed answers when the user asks for complex plans, detailed explanations, or comprehensive guidance. Be as thorough as needed to fully address their request.
         """
         
         let systemMessage = Message(role: "system", content: systemPrompt)
-        let historyMessages = conversationHistory.isEmpty ? [] : Array(conversationHistory.suffix(3)) // Keep less history for speed
+        let historyMessages = conversationHistory.isEmpty ? [] : Array(conversationHistory.suffix(8)) // Keep more history for better context
         let userMessage = Message(role: "user", content: prompt)
         
         return [systemMessage] + historyMessages + [userMessage]
