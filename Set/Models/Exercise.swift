@@ -5,7 +5,7 @@ enum ExerciseCategory: String, CaseIterable {
     case legs = "Legs"
     case core = "Core"
     case fullBody = "Full Body"
-    
+
     var icon: String {
         switch self {
         case .legs: return "figure.walk"
@@ -19,33 +19,33 @@ enum SquatVariation: String, CaseIterable {
     case glutes = "Glutes"
     case quads = "Quads"
     case balanced = "Balanced"
-    
+
     var formRequirements: [String: ClosedRange<Double>] {
         switch self {
         case .glutes:
             return [
-                "hipAngle": 75...95,    // Deeper hip angle for glute activation (research shows 80-90° optimal)
-                "kneeAngle": 80...100,  // Knees stay more vertical (allows for hip hinge)
-                "ankleAngle": 55...75,  // More ankle dorsiflexion (research shows 60-70° optimal)
-                "torsoAngle": 35...50   // More forward lean (research shows 40-45° optimal)
+                "hipAngle": 75...95,
+                "kneeAngle": 80...100,
+                "ankleAngle": 55...75,
+                "torsoAngle": 35...50
             ]
         case .quads:
             return [
-                "hipAngle": 80...100,   // Less hip flexion (research shows 85-95° optimal)
-                "kneeAngle": 75...95,   // More knee flexion (research shows 80-90° optimal)
-                "ankleAngle": 65...85,  // Less ankle dorsiflexion (research shows 70-80° optimal)
-                "torsoAngle": 15...35   // More upright torso (research shows 20-30° optimal)
+                "hipAngle": 80...100,
+                "kneeAngle": 75...95,
+                "ankleAngle": 65...85,
+                "torsoAngle": 15...35
             ]
         case .balanced:
             return [
-                "hipAngle": 80...95,    // Moderate hip flexion (research shows 85-90° optimal)
-                "kneeAngle": 80...95,   // Moderate knee flexion (research shows 85-90° optimal)
-                "ankleAngle": 60...80,  // Moderate ankle dorsiflexion (research shows 65-75° optimal)
-                "torsoAngle": 25...40   // Moderate torso angle (research shows 30-35° optimal)
+                "hipAngle": 80...95,
+                "kneeAngle": 80...95,
+                "ankleAngle": 60...80,
+                "torsoAngle": 25...40
             ]
         }
     }
-    
+
     var formTips: [String] {
         switch self {
         case .glutes:
@@ -82,12 +82,8 @@ struct Exercise: Identifiable, Hashable {
     let category: ExerciseCategory
     let description: String
     let imageName: String
-    
-    // New properties for detailed form tracking
     let formRequirements: [String: [String: ClosedRange<Double>]]
     let keyJoints: [[VNHumanBodyPose3DObservation.JointName]]
-    
-    // Squat specific properties (can be deprecated or integrated into formRequirements)
     let squatVariation: SquatVariation?
 
     func hash(into hasher: inout Hasher) {
@@ -99,27 +95,25 @@ struct Exercise: Identifiable, Hashable {
     }
 }
 
-// MARK: - Example Data
 extension Exercise {
     static let examples: [Exercise] = [
-        // Squats
         Exercise(
-            name: "squats",
+            name: "Squats",
             category: .legs,
             description: "A fundamental lower body exercise that targets the quadriceps, hamstrings, and glutes.",
             imageName: "squat_image",
             formRequirements: [
                 "bottom": [
-                    "kneeAngle": 85.0...110.0,   // Knee flexion at bottom (thighs parallel to ground)
-                    "hipAngle": 45.0...65.0,     // Hip flexion angle (proper hip hinge)
-                    "torsoAngle": 30.0...50.0,   // Torso forward lean (maintains balance)
-                    "ankleAngle": 60.0...85.0    // Ankle dorsiflexion (proper range)
+                    "kneeAngle": 85...110,
+                    "hipAngle": 45...65,
+                    "torsoAngle": 30...50,
+                    "ankleAngle": 60...85
                 ],
                 "top": [
-                    "kneeAngle": 160.0...180.0,  // Near full knee extension
-                    "hipAngle": 160.0...180.0,   // Near full hip extension
-                    "torsoAngle": 170.0...180.0, // Upright torso
-                    "ankleAngle": 80.0...100.0   // Neutral ankle position
+                    "kneeAngle": 160...180,
+                    "hipAngle": 160...180,
+                    "torsoAngle": 170...180,
+                    "ankleAngle": 80...100
                 ]
             ],
             keyJoints: [
@@ -130,22 +124,21 @@ extension Exercise {
             ],
             squatVariation: .balanced
         ),
-        // Deadlifts
         Exercise(
-            name: "deadlifts",
+            name: "Deadlifts",
             category: .legs,
             description: "A compound exercise that works the entire posterior chain, including the back, glutes, and hamstrings.",
             imageName: "deadlift_image",
             formRequirements: [
                 "bottom": [
-                    "hipHingeAngle": 20.0...50.0,   // Angle of shoulder-hip-knee (hip hinge)
-                    "backAngle": 165.0...195.0, // Maintain a flat back
-                    "kneeAngle": 100.0...140.0
+                    "hipHingeAngle": 20...50,
+                    "backAngle": 165...195,
+                    "kneeAngle": 100...140
                 ],
                 "top": [
-                    "hipHingeAngle": 170.0...190.0, // Full hip extension
-                    "backAngle": 170.0...190.0,
-                    "kneeAngle": 170.0...190.0
+                    "hipHingeAngle": 170...190,
+                    "backAngle": 170...190,
+                    "kneeAngle": 170...190
                 ]
             ],
             keyJoints: [
@@ -156,22 +149,21 @@ extension Exercise {
             ],
             squatVariation: nil
         ),
-        // Lunges
         Exercise(
-            name: "lunges",
+            name: "Lunges",
             category: .legs,
             description: "An effective exercise for targeting each leg individually, improving balance and strength.",
             imageName: "lunge_image",
             formRequirements: [
                 "bottom": [
-                    "frontKneeAngle": 80.0...100.0,
-                    "backKneeAngle": 80.0...110.0,
-                    "torsoAngle": 80.0...100.0 // Torso relative to vertical
+                    "frontKneeAngle": 80...100,
+                    "backKneeAngle": 80...110,
+                    "torsoAngle": 80...100
                 ],
                 "top": [
-                    "frontKneeAngle": 160.0...190.0,
-                    "backKneeAngle": 160.0...190.0,
-                    "torsoAngle": 85.0...95.0
+                    "frontKneeAngle": 160...190,
+                    "backKneeAngle": 160...190,
+                    "torsoAngle": 85...95
                 ]
             ],
             keyJoints: [
@@ -181,4 +173,4 @@ extension Exercise {
             squatVariation: nil
         )
     ]
-} 
+}

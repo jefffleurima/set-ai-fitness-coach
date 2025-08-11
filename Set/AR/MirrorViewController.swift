@@ -1,380 +1,380 @@
 import UIKit
-import AVFoundation
-import Vision
 import ARKit
 import RealityKit
+import Vision
+import Combine
 
 class MirrorViewController: UIViewController {
-    private var arView: ARView?
+    
+    // MARK: - Properties
+    
+    private var arView: ARView!
     private var bodyMeshRenderer: BodyMeshRenderer?
-    
-    // Vision framework for pose detection
-    private var poseRequest: VNDetectHumanBodyPose3DRequest?
-    
-    // Form analysis
     private var formAnalyzer = FormAnalyzer()
     private var currentExercise: Exercise?
-    private var repCount = 0
+    private var cancellables = Set<AnyCancellable>()
+    
+    // UI Components
+    private var swipeIndicator = UIView()
+    private var exerciseNameLabel = UILabel()
+    private var scoreLabel = UILabel()
+    private var repLabel = UILabel()
+    private var feedbackLabel = UILabel()
+    private var stateLabel = UILabel()
+    private var debugView = UIView()
+    
+    // State Management
+    private var state: MirrorState = .initializing {
+        didSet { updateUIForState() }
+    }
+    
     private var lastRepTime: Date?
     private var repHistory: [Float] = []
+    private var frameCount = 0
     
-    // UI Elements
-    private var exerciseNameLabel: UILabel?
-    private var scoreLabel: UILabel?
-    private var repLabel: UILabel?
-    private var feedbackLabel: UILabel?
-    
-    // SwiftUI dismiss closure
+    // Dependencies
     var dismissClosure: (() -> Void)?
     
-    // Initialization state
-    private var isARKitSetup = false
+    // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("🔧 MirrorViewController: viewDidLoad called")
+        setupARView()
         setupUI()
-        setupVision()
-        setupFormAnalyzer()
         setupGestureRecognizers()
-        // Don't setup ARKit here - wait for viewDidAppear
+        setupObservers()
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("🔧 MirrorViewController: viewDidAppear called")
+        startARSession()
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        pauseARSession()
+    }
+    
+    // MARK: - Setup Methods
+    
+    private func setupARView() {
+        arView = ARView(frame: view.bounds)
+        arView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        arView.backgroundColor = .black
+        view.addSubview(arView)
         
-        // Setup ARKit only when view is fully visible
-        if !isARKitSetup {
-            setupARKit()
-            isARKitSetup = true
-        }
+        bodyMeshRenderer = BodyMeshRenderer(arView: arView)
     }
     
     private func setupUI() {
-        view.backgroundColor = .black
+        // Swipe Indicator
+        swipeIndicator.backgroundColor = .white.withAlphaComponent(0.3)
+        swipeIndicator.layer.cornerRadius = 2
+        view.addSubview(swipeIndicator)
         
-        // Create ARView for body tracking
-        arView = ARView(frame: view.bounds)
-        arView?.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        arView?.backgroundColor = .black
+        // Exercise Name Label
+        exerciseNameLabel.styleAsHeader()
+        view.addSubview(exerciseNameLabel)
         
-        // Ensure ARView is ready before adding to hierarchy
-        guard let arView = arView else { return }
-        view.addSubview(arView)
+        // Score Label
+        scoreLabel.styleAsMetric()
+        view.addSubview(scoreLabel)
         
-        print("✅ MirrorViewController: ARView created and added to view hierarchy")
+        // Rep Label
+        repLabel.styleAsMetric()
+        view.addSubview(repLabel)
         
-        // Create UI overlays
-        createUIOverlays()
+        // Feedback Label
+        feedbackLabel.styleAsFeedback()
+        view.addSubview(feedbackLabel)
+        
+        // State Label
+        stateLabel.styleAsStateIndicator()
+        view.addSubview(stateLabel)
+        
+        // Debug View (hidden by default)
+        debugView.backgroundColor = .black.withAlphaComponent(0.7)
+        debugView.isHidden = true
+        view.addSubview(debugView)
+        
+        setupConstraints()
+        updateUIForState()
     }
     
-    private func setupARKit() {
-        guard let arView = arView else {
-            print("❌ MirrorViewController: ARView not available, skipping ARKit setup")
-            return
+    private func setupConstraints() {
+        [swipeIndicator, exerciseNameLabel, scoreLabel, repLabel, 
+         feedbackLabel, stateLabel, debugView].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
         }
         
-        // Ensure ARView is properly added to view hierarchy
-        guard arView.superview != nil else {
-            print("❌ MirrorViewController: ARView not in view hierarchy, skipping ARKit setup")
-            return
-        }
+        NSLayoutConstraint.activate([
+            // Swipe Indicator
+            swipeIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            swipeIndicator.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            swipeIndicator.widthAnchor.constraint(equalToConstant: 40),
+            swipeIndicator.heightAnchor.constraint(equalToConstant: 4),
+            
+            // Exercise Name
+            exerciseNameLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            exerciseNameLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exerciseNameLabel.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.8),
+            
+            // Score Label
+            scoreLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 16),
+            scoreLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            scoreLabel.widthAnchor.constraint(equalToConstant: 60),
+            
+            // Rep Label
+            repLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 16),
+            repLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            repLabel.widthAnchor.constraint(equalToConstant: 60),
+            
+            // Feedback Label
+            feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            feedbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            feedbackLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            
+            // State Label
+            stateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            
+            // Debug View
+            debugView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            debugView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            debugView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            debugView.heightAnchor.constraint(equalToConstant: 100)
+        ])
+    }
+    
+    private func setupGestureRecognizers() {
+        let swipeDown = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
+        swipeDown.direction = .down
+        view.addGestureRecognizer(swipeDown)
         
-        print("🔧 MirrorViewController: Setting up ARKit")
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        doubleTap.numberOfTapsRequired = 2
+        view.addGestureRecognizer(doubleTap)
+    }
+    
+    private func setupObservers() {
+        NotificationCenter.default
+            .publisher(for: UIApplication.willResignActiveNotification)
+            .sink { [weak self] _ in
+                self?.pauseARSession()
+            }
+            .store(in: &cancellables)
         
-        // Initialize body mesh renderer
-        bodyMeshRenderer = BodyMeshRenderer(arView: arView)
-        
-        // Check if body tracking is supported
+        NotificationCenter.default
+            .publisher(for: UIApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                self?.startARSession()
+            }
+            .store(in: &cancellables)
+    }
+    
+    // MARK: - AR Session Management
+    
+    private func startARSession() {
         guard ARBodyTrackingConfiguration.isSupported else {
-            print("❌ MirrorViewController: Body tracking not supported on this device")
-            showUnsupportedDeviceAlert()
+            state = .error(MirrorError.deviceNotSupported)
             return
         }
         
-        print("✅ MirrorViewController: Body tracking is supported")
-        
-        // Configure ARKit for body tracking (uses back camera by default)
         let configuration = ARBodyTrackingConfiguration()
         configuration.automaticImageScaleEstimationEnabled = true
         configuration.isAutoFocusEnabled = true
         
-        print("🔧 MirrorViewController: Starting ARKit session")
-        arView.session.run(configuration)
+        arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
         arView.session.delegate = self
-        arView.renderOptions = [.disablePersonOcclusion, .disableMotionBlur]
         
-        print("✅ MirrorViewController: ARKit session started")
+        state = .ready
     }
     
-    private func setupVision() {
-        // Configure Vision framework for 3D pose detection
-        poseRequest = VNDetectHumanBodyPose3DRequest { [weak self] request, error in
-            guard let self = self,
-                  let observations = request.results as? [VNHumanBodyPose3DObservation],
-                  let observation = observations.first else { return }
-            
-            DispatchQueue.main.async {
-                self.processVisionPoseObservation(observation)
-            }
-        }
+    private func pauseARSession() {
+        arView.session.pause()
     }
     
-    private func setupFormAnalyzer() {
-        formAnalyzer = FormAnalyzer()
-        if let exercise = currentExercise {
-            formAnalyzer.setExercise(exercise)
-        }
-    }
-    
-    private func processVisionPoseObservation(_ observation: VNHumanBodyPose3DObservation) {
-        // Analyze form using Vision framework data
-        let formAnalysis = formAnalyzer.analyzeForm(observation)
-        
-        // Update UI
-        updateUI(with: formAnalysis)
-        
-        // Update ARKit mesh with Vision data
-        bodyMeshRenderer?.updateMeshWithVisionData(observation, formAnalysis: formAnalysis)
-        
-        // Track reps
-        trackReps(formAnalysis: formAnalysis)
-    }
-    
-    private func updateUI(with formAnalysis: FormAnalyzer.FormAnalysis) {
-        scoreLabel?.text = "\(Int(formAnalysis.score))%"
-        repLabel?.text = "\(formAnalysis.repCount)"
-        feedbackLabel?.text = formAnalysis.feedback
-    }
-    
-    private func trackReps(formAnalysis: FormAnalyzer.FormAnalysis) {
-        if formAnalysis.isGoodRep {
-            repCount = formAnalysis.repCount
-            lastRepTime = Date()
-            repHistory.append(formAnalysis.score)
-            
-            // Keep only last 10 reps
-            if repHistory.count > 10 {
-                repHistory.removeFirst()
-            }
-        }
-    }
+    // MARK: - Exercise Management
     
     func setExercise(_ exercise: Exercise) {
         currentExercise = exercise
         formAnalyzer.setExercise(exercise)
         
-        // Update exercise name label
         DispatchQueue.main.async {
-            self.exerciseNameLabel?.text = exercise.name
+            self.exerciseNameLabel.text = exercise.name
+            self.repLabel.text = "0"
+            self.scoreLabel.text = "0%"
         }
-        
-        print("✅ MirrorViewController: Exercise set to \(exercise.name)")
     }
     
-    private func showUnsupportedDeviceAlert() {
-        let alert = UIAlertController(
-            title: "Device Not Supported",
-            message: "Body tracking requires iPhone X or newer with A12 Bionic chip.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        present(alert, animated: true)
+    // MARK: - UI Updates
+    
+    private func updateUIForState() {
+        DispatchQueue.main.async {
+            switch self.state {
+            case .initializing:
+                self.stateLabel.text = "Initializing..."
+                self.stateLabel.isHidden = false
+            case .ready:
+                self.stateLabel.text = "Ready - Stand in Frame"
+                self.stateLabel.isHidden = false
+            case .tracking:
+                self.stateLabel.isHidden = true
+            case .error(let error):
+                self.stateLabel.text = "Error: \(error.localizedDescription)"
+                self.stateLabel.isHidden = false
+            }
+        }
     }
     
-    private func setupGestureRecognizers() {
-        // Add swipe down gesture to exit camera screen
-        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
-        swipeDownGesture.direction = .down
-        view.addGestureRecognizer(swipeDownGesture)
-        
-        print("✅ MirrorViewController: Swipe down gesture added - swipe down to exit")
+    private func updateFormAnalysis(_ analysis: FormAnalyzer.FormAnalysis) {
+        DispatchQueue.main.async {
+            self.scoreLabel.text = "\(Int(analysis.score))%"
+            self.repLabel.text = "\(analysis.repCount)"
+            
+            if !analysis.feedback.isEmpty {
+                self.feedbackLabel.text = analysis.feedback.joined(separator: "\n")
+            }
+            
+            // Update state based on phase
+            switch analysis.currentPhase {
+            case .preparation:
+                self.state = .ready
+            default:
+                self.state = .tracking
+            }
+        }
     }
+    
+    // MARK: - User Interaction
     
     @objc private func handleSwipeDown() {
-        print("🔄 MirrorViewController: Swipe down detected - dismissing camera screen")
-        
-        // Stop ARKit session immediately
-        arView?.session.pause()
-        
-        // Use SwiftUI dismiss for smooth transition
-        if let dismissClosure = dismissClosure {
-            dismissClosure()
-        } else {
-            // Fallback to standard dismiss
-            self.dismiss(animated: true, completion: nil)
-        }
+        dismissClosure?()
     }
     
-    private func createUIOverlays() {
-        // Add swipe down indicator at the top
-        let swipeIndicator = UIView()
-        swipeIndicator.backgroundColor = UIColor.white.withAlphaComponent(0.3)
-        swipeIndicator.layer.cornerRadius = 2
-        swipeIndicator.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(swipeIndicator)
-        
-        // Position swipe indicator at top center
-        NSLayoutConstraint.activate([
-            swipeIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            swipeIndicator.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            swipeIndicator.widthAnchor.constraint(equalToConstant: 40),
-            swipeIndicator.heightAnchor.constraint(equalToConstant: 4)
-        ])
-        
-        // Exercise Name Label - TOP center, compact, elegant
-        exerciseNameLabel = UILabel()
-        exerciseNameLabel?.text = "Exercise"
-        exerciseNameLabel?.textColor = .white
-        exerciseNameLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold) // Smaller, more elegant font
-        exerciseNameLabel?.textAlignment = .center
-        exerciseNameLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.5) // Lighter background
-        exerciseNameLabel?.layer.cornerRadius = 12 // Rounded corners
-        exerciseNameLabel?.layer.masksToBounds = true
-        exerciseNameLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Form Score Label - LEFT side, small, dark transparent
-        scoreLabel = UILabel()
-        scoreLabel?.text = "0%"
-        scoreLabel?.textColor = .white
-        scoreLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold) // Smaller font
-        scoreLabel?.textAlignment = .center
-        scoreLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.6) // Darker transparent
-        scoreLabel?.layer.cornerRadius = 6 // Smaller radius
-        scoreLabel?.layer.masksToBounds = true
-        scoreLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Rep Label - RIGHT side, small, dark transparent
-        repLabel = UILabel()
-        repLabel?.text = "0"
-        repLabel?.textColor = .white
-        repLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold) // Smaller font
-        repLabel?.textAlignment = .center
-        repLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.6) // Darker transparent
-        repLabel?.layer.cornerRadius = 6 // Smaller radius
-        repLabel?.layer.masksToBounds = true
-        repLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Feedback Label - bottom center
-        feedbackLabel = UILabel()
-        feedbackLabel?.text = ""
-        feedbackLabel?.textColor = .white
-        feedbackLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        feedbackLabel?.textAlignment = .center
-        feedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-        feedbackLabel?.layer.cornerRadius = 8
-        feedbackLabel?.layer.masksToBounds = true
-        feedbackLabel?.translatesAutoresizingMaskIntoConstraints = false
-        feedbackLabel?.numberOfLines = 0
-        
-        // Add to view
-        if let exerciseNameLabel = exerciseNameLabel {
-            view.addSubview(exerciseNameLabel)
-        }
-        if let scoreLabel = scoreLabel {
-            view.addSubview(scoreLabel)
-        }
-        if let repLabel = repLabel {
-            view.addSubview(repLabel)
-        }
-        if let feedbackLabel = feedbackLabel {
-            view.addSubview(feedbackLabel)
-        }
-        
-        // Setup constraints
-        setupConstraints()
+    @objc private func handleDoubleTap() {
+        debugView.isHidden = !debugView.isHidden
     }
     
-    private func setupConstraints() {
-        guard let exerciseNameLabel = exerciseNameLabel,
-              let scoreLabel = scoreLabel,
-              let repLabel = repLabel,
-              let feedbackLabel = feedbackLabel else { return }
-        
-        NSLayoutConstraint.activate([
-            // Exercise name label - TOP center, compact
-            exerciseNameLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            exerciseNameLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            exerciseNameLabel.widthAnchor.constraint(equalToConstant: 120), // Compact width
-            exerciseNameLabel.heightAnchor.constraint(equalToConstant: 32), // Compact height
-            
-            // Form score label - LEFT side, top
-            scoreLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 15),
-            scoreLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20), // Left side
-            scoreLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
-            scoreLabel.heightAnchor.constraint(equalToConstant: 30), // Smaller height
-            
-            // Rep label - RIGHT side, top
-            repLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 15),
-            repLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20), // Right side
-            repLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
-            repLabel.heightAnchor.constraint(equalToConstant: 30),
-            
-            // Feedback label - bottom center
-            feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            feedbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            feedbackLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            feedbackLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
-        ])
+    // MARK: - Performance Optimization
+    
+    private func shouldProcessFrame() -> Bool {
+        frameCount += 1
+        // Process every 3rd frame for performance
+        return frameCount % 3 == 0
     }
 }
 
 // MARK: - ARSessionDelegate
 extension MirrorViewController: ARSessionDelegate {
+    
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        // Process camera frame with Vision framework
-        let pixelBuffer = frame.capturedImage
+        guard shouldProcessFrame() else { return }
         
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
+        let handler = VNImageRequestHandler(cvPixelBuffer: frame.capturedImage, orientation: .up)
+        let request = VNDetectHumanBodyPose3DRequest()
         
         do {
-            try handler.perform([poseRequest].compactMap { $0 })
+            try handler.perform([request])
+            
+            if let observation = request.results?.first {
+                processPoseObservation(observation)
+            } else if state == .tracking {
+                state = .ready // No body detected
+            }
         } catch {
-            print("❌ MirrorViewController: Failed to perform Vision request: \(error)")
+            state = .error(error)
         }
     }
     
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
-        print("🔍 MirrorViewController: ARSession didAdd anchors: \(anchors.count)")
-        for anchor in anchors {
-            if let bodyAnchor = anchor as? ARBodyAnchor {
-                print("✅ MirrorViewController: Body anchor detected!")
-                // Pass body anchor to mesh renderer
-                bodyMeshRenderer?.session(session, didAdd: [bodyAnchor])
-            }
+        anchors.compactMap { $0 as? ARBodyAnchor }.forEach {
+            bodyMeshRenderer?.session(session, didAdd: [$0])
         }
     }
     
     func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
-        for anchor in anchors {
-            if let bodyAnchor = anchor as? ARBodyAnchor {
-                print("🔄 MirrorViewController: Body anchor updated")
-                // Pass body anchor updates to mesh renderer
-                bodyMeshRenderer?.session(session, didUpdate: [bodyAnchor])
-            }
-        }
-    }
-    
-    func session(_ session: ARSession, didRemove anchors: [ARAnchor]) {
-        for anchor in anchors {
-            if let bodyAnchor = anchor as? ARBodyAnchor {
-                print("❌ MirrorViewController: Body anchor removed")
-                // Pass body anchor removal to mesh renderer
-                bodyMeshRenderer?.session(session, didRemove: [bodyAnchor])
-            }
+        anchors.compactMap { $0 as? ARBodyAnchor }.forEach {
+            bodyMeshRenderer?.session(session, didUpdate: [$0])
         }
     }
     
     func session(_ session: ARSession, didFailWithError error: Error) {
-        print("❌ MirrorViewController: ARKit session failed: \(error)")
+        state = .error(error)
     }
     
     func sessionWasInterrupted(_ session: ARSession) {
-        print("⚠️ MirrorViewController: ARKit session was interrupted")
+        state = .error(MirrorError.sessionInterrupted)
     }
     
     func sessionInterruptionEnded(_ session: ARSession) {
-        print("✅ MirrorViewController: ARKit session interruption ended")
+        startARSession()
     }
-} 
+    
+    private func processPoseObservation(_ observation: VNHumanBodyPose3DObservation) {
+        let analysis = formAnalyzer.analyzeForm(observation)
+        updateFormAnalysis(analysis)
+        bodyMeshRenderer?.updateMeshWithVisionData(observation, formAnalysis: analysis)
+    }
+}
+
+// MARK: - State & Error Handling
+private enum MirrorState {
+    case initializing
+    case ready
+    case tracking
+    case error(Error)
+}
+
+private enum MirrorError: LocalizedError {
+    case deviceNotSupported
+    case sessionInterrupted
+    
+    var errorDescription: String? {
+        switch self {
+        case .deviceNotSupported:
+            return "This device doesn't support body tracking"
+        case .sessionInterrupted:
+            return "Session was interrupted"
+        }
+    }
+}
+
+// MARK: - UI Styling Extensions
+private extension UILabel {
+    func styleAsHeader() {
+        textColor = .white
+        font = .systemFont(ofSize: 18, weight: .semibold)
+        textAlignment = .center
+        backgroundColor = .black.withAlphaComponent(0.5)
+        layer.cornerRadius = 12
+        layer.masksToBounds = true
+        numberOfLines = 1
+    }
+    
+    func styleAsMetric() {
+        textColor = .white
+        font = .systemFont(ofSize: 16, weight: .bold)
+        textAlignment = .center
+        backgroundColor = .black.withAlphaComponent(0.6)
+        layer.cornerRadius = 6
+        layer.masksToBounds = true
+    }
+    
+    func styleAsFeedback() {
+        textColor = .white
+        font = .systemFont(ofSize: 16, weight: .medium)
+        textAlignment = .center
+        backgroundColor = .black.withAlphaComponent(0.7)
+        layer.cornerRadius = 8
+        layer.masksToBounds = true
+        numberOfLines = 0
+    }
+    
+    func styleAsStateIndicator() {
+        textColor = .white
+        font = .systemFont(ofSize: 20, weight: .medium)
+        textAlignment = .center
+        numberOfLines = 0
+    }
+}
