@@ -19,7 +19,7 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 - Computer vision-based movement analysis
 
 ### 🎤 **Voice Assistant**
-- "Hey Coach" wake word detection
+- "Hey Rex" wake word detection
 - Hands-free workout control
 - Voice-activated exercise selection
 - Conversational fitness guidance
@@ -44,9 +44,6 @@ Built with modern iOS development practices:
 - **Picovoice** for voice wake word detection
 - **OpenAI API** for intelligent coaching
 
-## 📱 Screenshots
-
-*Coming soon - App Store ready screenshots showcasing the polished UI*
 
 ## 🧪 Testing
 
