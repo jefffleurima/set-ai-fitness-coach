@@ -7,8 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D819052B2E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0.ppn in Resources */ = {isa = PBXBuildFile; fileRef = D81905282E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0.ppn */; };
+		D819052C2E4FECA000724AC6 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D81905292E4FECA000724AC6 /* LICENSE.txt */; };
 		D8B18A282DFDD42B005A4796 /* Porcupine in Frameworks */ = {isa = PBXBuildFile; productRef = D8B18A272DFDD42B005A4796 /* Porcupine */; };
-		D8B18A2D2DFDD43F005A4796 /* Hey-Coach_en_ios_v3_0_0.ppn in Resources */ = {isa = PBXBuildFile; fileRef = D8B18A292DFDD43F005A4796 /* Hey-Coach_en_ios_v3_0_0.ppn */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -29,7 +30,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		D8B18A292DFDD43F005A4796 /* Hey-Coach_en_ios_v3_0_0.ppn */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Hey-Coach_en_ios_v3_0_0.ppn"; sourceTree = "<group>"; };
+		D81905282E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0.ppn */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Hey-Rex_en_ios_v3_0_0.ppn"; sourceTree = "<group>"; };
+		D81905292E4FECA000724AC6 /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		D8B18A362DFF244F005A4796 /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		D8F4CC1B2DFB35BC00B9E108 /* Set.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Set.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8F4CC2B2DFB35BE00B9E108 /* SetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -93,6 +95,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D819052A2E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0 */ = {
+			isa = PBXGroup;
+			children = (
+				D81905282E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0.ppn */,
+				D81905292E4FECA000724AC6 /* LICENSE.txt */,
+			);
+			path = "Hey-Rex_en_ios_v3_0_0";
+			sourceTree = "<group>";
+		};
 		D8F4CC122DFB35BC00B9E108 = {
 			isa = PBXGroup;
 			children = (
@@ -101,7 +112,7 @@
 				D8F4CC2E2DFB35BE00B9E108 /* SetTests */,
 				D8F4CC382DFB35BE00B9E108 /* SetUITests */,
 				D8F4CC1C2DFB35BC00B9E108 /* Products */,
-				D8B18A292DFDD43F005A4796 /* Hey-Coach_en_ios_v3_0_0.ppn */,
+				D819052A2E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0 */,
 			);
 			sourceTree = "<group>";
 		};
@@ -239,7 +250,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D8B18A2D2DFDD43F005A4796 /* Hey-Coach_en_ios_v3_0_0.ppn in Resources */,
+				D819052B2E4FECA000724AC6 /* Hey-Rex_en_ios_v3_0_0.ppn in Resources */,
+				D819052C2E4FECA000724AC6 /* LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

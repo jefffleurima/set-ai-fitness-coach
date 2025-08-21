@@ -41,7 +41,7 @@ Built with modern iOS development practices:
 - **SwiftUI** for responsive, declarative UI
 - **ARKit** for real-time body tracking
 - **HealthKit** for fitness data integration
-- **Picovoice** for voice wake word detection
+- **Picovoice** for "Hey Rex" wake word detection
 - **OpenAI API** for intelligent coaching
 
 
@@ -72,6 +72,26 @@ This project is licensed under a **Proprietary Software License** - see the [LIC
 - ❌ **No Commercial Use** - Cannot be used commercially without permission
 - ❌ **No Distribution** - Cannot be shared or redistributed
 - ❌ **No Competing Products** - Cannot create similar fitness/gym software
+
+## 🔐 Security & API Keys
+
+### **API Key Management:**
+- ✅ **Info.plist**: Safe for development (excluded from git)
+- ❌ **Never hardcode**: Don't put keys directly in Swift files
+- 📋 **Use template**: Copy `Info.template.plist` → `Info.plist` and add your key
+
+### **For Contributors:**
+```bash
+# 1. Setup your Info.plist
+cp Set/Info.template.plist Set/Info.plist
+
+# 2. Add your OpenAI API key to Info.plist
+# Replace "YOUR_OPENAI_API_KEY_HERE" with your actual key
+
+# 3. Never commit Info.plist with real keys!
+```
+
+**⚠️ Your API key is automatically protected by `.gitignore`**
 
 ## 📞 Contact
 

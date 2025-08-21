@@ -9,34 +9,28 @@ struct VoiceAssistantOverlay: View {
             if let message = voiceAssistant.feedbackMessage, !message.isEmpty, !voiceAssistant.isListening, message != "Listening..." {
                 ScrollView {
                     Text(message)
-                        .font(.headline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.black.opacity(0.8))
+                                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                        )
+                        .transition(.asymmetric(
+                            insertion: .scale.combined(with: .opacity),
+                            removal: .opacity.combined(with: .move(edge: .bottom))
+                        ))
                 }
-                .frame(maxHeight: 120) // Limit height for very long messages
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.black.opacity(0.75))
-                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-                .transition(.asymmetric(
-                    insertion: .scale.combined(with: .opacity),
-                    removal: .opacity.combined(with: .move(edge: .bottom))
-                ))
+                .frame(maxHeight: 200)
             }
-
-            // Hands-free indicator with improved design
+            
+            // Main assistant controls
             VStack(spacing: 10) {
                 ZStack {
-                    // Background circle with gradient
+                    // Background with interactive effect
                     Circle()
                         .fill(
                             LinearGradient(
@@ -47,31 +41,48 @@ struct VoiceAssistantOverlay: View {
                         )
                         .frame(width: 60, height: 60)
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            Circle()
+                                .stroke(voiceAssistant.isListening ? Color.blue : Color.white.opacity(0.2), 
+                                lineWidth: voiceAssistant.isListening ? 2 : 1)
+                        )
+                        .scaleEffect(voiceAssistant.isListening ? 1.05 : 1.0)
                     
                     if voiceAssistant.isListening {
                         PulsingListeningView()
                     }
-
-                    // Icon with better styling
+                    
+                    // Icon with context-sensitive appearance
                     Image(systemName: voiceAssistant.isListening ? "waveform.circle.fill" : "waveform")
                         .font(.title)
                         .foregroundColor(voiceAssistant.isListening ? .blue : .white.opacity(0.8))
-                        .scaleEffect(voiceAssistant.isListening ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 0.3), value: voiceAssistant.isListening)
+                        .symbolEffect(.bounce, options: .speed(0.5), value: voiceAssistant.isListening)
+                }
+                .onTapGesture {
+                    voiceAssistant.toggleListening()
                 }
                 
-                // Status text with better typography
-                Text(voiceAssistant.isListening ? "Listening..." : "Say 'Hey Coach' for help")
+                // Context-sensitive status text
+                Text(statusText)
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.white.opacity(0.8))
-                    .animation(.easeInOut(duration: 0.3), value: voiceAssistant.isListening)
+                    .transition(.opacity)
             }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 30)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: voiceAssistant.isListening)
-        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: voiceAssistant.feedbackMessage)
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var statusText: String {
+        if voiceAssistant.isListening {
+            return "Listening..."
+        } else {
+            return "Say 'Hey Rex' for help"
+        }
     }
 }
 

@@ -2,7 +2,7 @@ import Foundation
 
 class OpenAIClient {
     static let shared = OpenAIClient()
-    private let apiKey: String
+    private var apiKey: String
     private let baseURL = "https://api.openai.com/v1/chat/completions"
     
     // User profile and preferences
@@ -10,8 +10,15 @@ class OpenAIClient {
     private var conversationHistory: [Message] = []
     
     private init() {
+        // Load API key from AppConfig (which reads from Info.plist)
         self.apiKey = AppConfig.apiKey
-        print("✅ API Key loaded successfully: \(String(apiKey.prefix(8)))...")
+        
+        if !apiKey.isEmpty {
+            print("✅ OpenAIClient: API Key loaded successfully from AppConfig")
+        } else {
+            print("❌ OpenAIClient: Failed to load API key from AppConfig")
+        }
+        
         // Initialize with default user profile
         self.userProfile = UserProfile()
     }
@@ -114,8 +121,32 @@ class OpenAIClient {
         }
     }
     
+    // MARK: - Helper Methods
+    private func reloadAPIKey() {
+        self.apiKey = AppConfig.apiKey
+        if !apiKey.isEmpty {
+            print("✅ OpenAIClient: API Key reloaded successfully from AppConfig")
+        } else {
+            print("❌ OpenAIClient: Failed to reload API key from AppConfig")
+        }
+    }
+    
     // MARK: - Coaching Methods
     func sendMessage(prompt: String, context: WorkoutContext? = nil, completion: @escaping (Result<String, Error>) -> Void) {
+        // Ensure API key is loaded
+        if apiKey.isEmpty {
+            print("⚠️ OpenAIClient: API key is empty, attempting to reload...")
+            reloadAPIKey()
+        }
+        
+        guard !apiKey.isEmpty else {
+            print("❌ OpenAIClient: No API key available for request")
+            completion(.failure(NSError(domain: "OpenAIClient", code: 401, userInfo: [NSLocalizedDescriptionKey: "API key not configured"])))
+            return
+        }
+        
+        print("🔑 OpenAIClient: Using API key: \(String(apiKey.prefix(8)))...")
+        
         let messages = buildMessageHistory(prompt: prompt, context: context)
         
         // Determine if this is a complex request that needs more tokens

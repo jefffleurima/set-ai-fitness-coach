@@ -1,9 +1,36 @@
 import Foundation
-import Combine
 import Porcupine
 import Speech
 import AVFoundation
-import SwiftUI
+
+// MARK: - Premium Voice AI System
+enum CoachingContext {
+    case exerciseSetup
+    case activeForm
+    case restPeriod
+    case sessionComplete
+    case generalChat
+}
+
+enum CoachingStyle {
+    case motivational    // "Let's go! That's what I'm talking about!"
+    case technical      // "Focus on hip hinge movement pattern"
+    case supportive     // "Good form, you're getting stronger"
+    case professional   // "Maintain neutral spine position"
+}
+
+struct CoachingPersonality {
+    var style: CoachingStyle
+    let name: String
+    var voiceCharacteristics: VoiceCharacteristics
+}
+
+struct VoiceCharacteristics {
+    let rate: Float
+    let pitch: Float
+    let volume: Float
+    let voiceIdentifier: String
+}
 
 class VoiceAssistantManager: NSObject, ObservableObject {
     static let shared = VoiceAssistantManager()
@@ -25,12 +52,27 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var speechTimeoutTimer: Timer?
     private let speechPauseTimeout: TimeInterval = 0.8 // Increased from 0.4 to reduce timeout warnings
     private var conversationTimeoutTimer: Timer?
-    private let conversationTimeout: TimeInterval = 20.0 // Shorter timeout
+    private let conversationTimeout: TimeInterval = 8.0
+    private let postWakeWordDelay: TimeInterval = 3.0  // Wait 3 seconds after "Hey Rex"
+    private let postResponseListeningTime: TimeInterval = 3.0  // Listen for 3 seconds after response // Shorter timeout for faster responses
     private var isInConversation = false
     private var lastFormFeedbackTime: Date = Date()
     private let formFeedbackCooldown: TimeInterval = 2.0 // Prevent spam
     private var workoutContext: [String: Any] = [:]
     private var isProcessingSpeech = false // Prevent multiple simultaneous processing
+    
+    // MARK: - Premium Voice AI Properties
+    private var currentContext: CoachingContext = .generalChat
+    private var currentPersonality: CoachingPersonality
+    private var coachingPhrases: [String: [String]] = [:]
+    
+    // Premium voice characteristics - Humanized for natural conversation
+    private let premiumVoices: [CoachingStyle: VoiceCharacteristics] = [
+        .motivational: VoiceCharacteristics(rate: 0.50, pitch: 1.15, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .technical: VoiceCharacteristics(rate: 0.55, pitch: 1.0, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .supportive: VoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .professional: VoiceCharacteristics(rate: 0.58, pitch: 0.98, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+    ]
     
     // Fast response cache for common form corrections
     private let formCorrections: [String: String] = [
@@ -62,14 +104,33 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         "plank_bodyAlignmentAngle_bad": "Keep your hips level with your shoulders. Don't sag!"
     ]
     
-    private(set) var conversationHistory: [[String: String]] = [
-        ["role": "system", "content": "You are PeakSet, an elite AI fitness coach. Be FAST, DIRECT, and EFFICIENT. Keep responses under 2 sentences unless absolutely necessary. Be brutally honest but supportive. Use gym slang and be relatable. Create instant connections through shared fitness passion. No fluff, no generic advice. Be the coach everyone wants - knowledgeable, real, and motivating. If someone's form sucks, tell them straight. If they're crushing it, hype them up. Always actionable advice. Remember: speed and authenticity over perfection."]
-    ]
+    // Conversation history removed - now handled by individual processWithOpenAI calls
     
     override init() {
+        // Initialize with supportive personality by default
+        let defaultVoice = VoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+        currentPersonality = CoachingPersonality(style: .supportive, name: "Hey Rex Coach", voiceCharacteristics: defaultVoice)
+        
         super.init()
         setupSpeechRecognition()
         synthesizer.delegate = self
+        setupCoachingPhrases()
+    }
+    
+    // MARK: - Public Interface
+    func setCoachingStyle(_ style: CoachingStyle) {
+        currentPersonality.style = style
+        let voiceChar = premiumVoices[style] ?? currentPersonality.voiceCharacteristics
+        currentPersonality.voiceCharacteristics = voiceChar
+        print("[Premium Voice] Switched to \(style) coaching style")
+    }
+    
+    func toggleListening() {
+        if isInConversation {
+            endConversation()
+        } else {
+            startConversation()
+        }
     }
     
     // MARK: - Workout Mode
@@ -85,8 +146,8 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             startWakeWordDetection()
         }
         
-        // Speak workout start with clear instructions
-        speakImmediately("Starting \(exercise). I'm listening for 'Hey Coach' - just say it anytime you need help with form or have questions.")
+        // Speak workout start with premium coaching
+        speakWithPersonality("Starting \(exercise). I'm your coach today. Just say 'Hey Rex' anytime you need form help or have questions.", style: .motivational)
     }
     
     func stopWorkoutMode() {
@@ -112,7 +173,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             message = "✅ " + message
         }
         
-        speakImmediately(message)
+        speakWithPersonality(message, style: .technical)
     }
     
     func speakRepCount(_ count: Int) {
@@ -120,111 +181,233 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         workoutContext["repCount"] = count
         
         let message = "Great rep \(count)! Keep that form up!"
-        speakImmediately(message)
+        speakWithPersonality(message, style: .technical)
     }
     
     func speakWorkoutComplete() {
         let repCount = workoutContext["repCount"] as? Int ?? 0
         let message = "Amazing workout! You completed \(repCount) perfect reps. You crushed it today!"
-        speakImmediately(message)
+        speakWithPersonality(message, style: .technical)
     }
     
-    // MARK: - Test Audio
-    func testAudio() {
-        print("[Audio] Testing audio synthesis...")
-        
-        // Ensure synthesizer is properly configured
-        synthesizer.delegate = self
-        
-        // Test with a simple message
-        let utterance = AVSpeechUtterance(string: "Audio test. Can you hear me?")
-        utterance.rate = 0.5
-        utterance.volume = 1.0
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        
-        // Configure audio session for playback
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            print("[Audio] Audio session configured for playback")
-        } catch {
-            print("[Audio] Failed to configure audio session: \(error)")
-        }
-        
-        synthesizer.speak(utterance)
-    }
+
     
-    // MARK: - Fast Speech Synthesis
-    private func speakImmediately(_ text: String) {
+    // MARK: - Premium Speech Synthesis
+    func speakWithPersonality(_ text: String, style: CoachingStyle? = nil) {
+        let targetStyle = style ?? currentPersonality.style
+        let voiceChar = premiumVoices[targetStyle] ?? currentPersonality.voiceCharacteristics
+        
+        print("[Premium Speech] Speaking with \(targetStyle) style: \(text)")
+        
         // Stop any current speech
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
+            print("[Premium Speech] Stopped current speech")
         }
         
-        // Configure audio session for playback with better error handling
+        // Configure audio session for premium playback
         do {
             let audioSession = AVAudioSession.sharedInstance()
-            
-            // First, deactivate the current session
-            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-            
-            // Set category for playback with proper options
-            try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
-            
-            // Activate the session
+            try audioSession.setCategory(.playAndRecord, mode: .voicePrompt, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            
-            print("[Audio] Audio session configured successfully for playback")
+            print("[Premium Speech] Audio session configured with speaker priority")
         } catch {
-            print("[Speech] Failed to configure audio session for playback: \(error)")
-            // Continue anyway - the synthesizer might still work
+            print("[Premium Speech] ❌ Audio session error: \(error.localizedDescription)")
+            // Fallback: Try simpler configuration
+            do {
+                let audioSession = AVAudioSession.sharedInstance()
+                try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
+                try audioSession.setActive(true)
+                print("[Premium Speech] ✅ Fallback audio session configured")
+            } catch {
+                print("[Premium Speech] ❌ Fallback audio session also failed: \(error.localizedDescription)")
+            }
         }
         
+        // Create premium utterance with humanized settings
         let utterance = AVSpeechUtterance(string: text)
         
-        // Optimize for speed and clarity
-        utterance.rate = 0.6 // Even faster
-        utterance.pitchMultiplier = 1.1 // Slightly higher pitch for clarity
-        utterance.volume = 1.0
-        utterance.preUtteranceDelay = 0.01 // Minimal delay
-        utterance.postUtteranceDelay = 0.02 // Minimal delay
+        // Apply humanized voice characteristics
+        utterance.rate = voiceChar.rate
+        utterance.volume = voiceChar.volume
+        utterance.pitchMultiplier = voiceChar.pitch
         
-        // Use enhanced voice if available
-        let voices = AVSpeechSynthesisVoice.speechVoices()
-        let preferredVoice = voices.first {
-            $0.identifier.contains("com.apple.ttsbundle.Siri") && $0.language == "en-US"
-        } ?? voices.first {
-            $0.quality == .enhanced && $0.language == "en-US"
-        } ?? AVSpeechSynthesisVoice(language: "en-US")
+        // Add natural pauses for human-like speech
+        utterance.preUtteranceDelay = 0.1
+        utterance.postUtteranceDelay = 0.2
         
-        utterance.voice = preferredVoice
+        // Use premium voice if available, with fallback to best quality
+        if let voice = AVSpeechSynthesisVoice(identifier: voiceChar.voiceIdentifier) {
+            utterance.voice = voice
+            print("[Premium Speech] Using premium voice: \(voice.name)")
+        } else {
+            // Fallback to highest quality available voice
+            let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
+            utterance.voice = voices.first { $0.quality == .enhanced } ?? 
+                             voices.first { $0.quality == .default } ??
+                             AVSpeechSynthesisVoice(language: "en-US")
+            print("[Premium Speech] Using fallback voice: \(utterance.voice?.name ?? "default")")
+        }
         
+        // Set delegate for callbacks
+        synthesizer.delegate = self
+        
+        // Start premium speech
+        print("[Premium Speech] Starting premium speech synthesis...")
         synthesizer.speak(utterance)
+        print("[Premium Speech] ✅ Premium speech initiated for: '\(text)'")
+    }
+    
+    // MARK: - Legacy Speech Method (Compatibility)
+    private func speakImmediately(_ text: String) {
+        // Redirect to premium speech system for consistency
+        speakWithPersonality(text, style: .supportive)
+    }
+    
+    // MARK: - Premium Coaching Phrases Setup
+    private func setupCoachingPhrases() {
+        coachingPhrases = [
+            "motivational": [
+                "Yesss! That's exactly what I want to see!",
+                "Holy moly, you're absolutely crushing this!",
+                "Beast mode activated! Let's keep this energy going!",
+                "Now THAT'S what I call proper effort!",
+                "You're making this look way too easy!",
+                "Fire! Absolute fire! Keep that intensity!",
+                "This is how champions are made, right here!",
+                "You just leveled up! I can see the difference!"
+            ],
+            "technical": [
+                "Think about driving through your heels here",
+                "Keep that chest up and core tight",
+                "Really focus on that hip hinge pattern",
+                "Control the way down, power on the way up",
+                "Your knees should track right over your toes",
+                "Take a deep breath and brace that core",
+                "Feel that stretch in your glutes at the bottom",
+                "Mind-muscle connection is everything here"
+            ],
+            "supportive": [
+                "Really nice form, you're getting the hang of this",
+                "Great depth on that one, well done",
+                "That's your best rep yet, I can tell",
+                "You're making solid progress, keep it up",
+                "Perfect technique right there",
+                "You're building real functional strength",
+                "That's exactly how it should feel",
+                "You're definitely getting stronger each session"
+            ],
+            "professional": [
+                "Maintain neutral spine position",
+                "Execute the movement with proper form",
+                "Focus on controlled eccentric phase",
+                "Maintain proper breathing pattern",
+                "Ensure full range of motion",
+                "Keep your core engaged throughout",
+                "Maintain proper joint alignment",
+                "Execute with precision and control"
+            ]
+        ]
+    }
+    
+    // MARK: - Context-Aware Response Generation
+    private func generateContextualResponse(context: CoachingContext, formAnalysis: [String: Any]? = nil) -> String {
+        switch context {
+        case .exerciseSetup:
+            return getRandomPhrase(for: .supportive) + " Ready to crush this workout?"
+        case .activeForm:
+            if let analysis = formAnalysis {
+                return generateFormFeedback(analysis: analysis)
+            }
+            return getRandomPhrase(for: .motivational)
+        case .restPeriod:
+            return getRandomPhrase(for: .supportive) + " Take a breath, you're doing great."
+        case .sessionComplete:
+            return "Incredible work today! You're building something special."
+        case .generalChat:
+            return getRandomPhrase(for: .supportive)
+        }
+    }
+    
+    private func getRandomPhrase(for style: CoachingStyle) -> String {
+        let styleKey = String(describing: style)
+        let phrases = coachingPhrases[styleKey] ?? ["Great work!"]
+        return phrases.randomElement() ?? "Keep it up!"
+    }
+    
+    private func generateFormFeedback(analysis: [String: Any]) -> String {
+        // This will be enhanced with actual form analysis
+        return getRandomPhrase(for: .technical)
+    }
+    
+    // MARK: - Enhanced OpenAI Integration
+    private func processWithOpenAI(_ userInput: String) {
+        print("[OpenAI] Processing: \(userInput)")
         
-        // Update UI
-        DispatchQueue.main.async {
-            self.feedbackMessage = text
-            self.aiResponse = text
+        // Use the unified OpenAI client
+        OpenAIClient.shared.sendMessage(prompt: userInput) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let response):
+                    print("[OpenAI] ✅ Response: \(response)")
+                    
+                    // Update UI
+                    self?.feedbackMessage = response
+                    
+                    // Speak the response using premium voice
+                    self?.speakWithPersonality(response, style: .supportive)
+                    
+                    // Clear message after speaking
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                        if self?.feedbackMessage == response {
+                            self?.feedbackMessage = nil
+                        }
+                    }
+                    
+                case .failure(let error):
+                    print("[OpenAI] ❌ Error: \(error)")
+                    self?.speakWithPersonality("I'm having trouble processing your request right now. Please try again.", style: .supportive)
+                }
+            }
         }
     }
     
     // MARK: - Wake Word
     func startWakeWordDetection() {
-        guard let keywordPath = Bundle.main.path(forResource: "Hey-Coach_en_ios_v3_0_0", ofType: "ppn") else {
-            print("Wake word model not found")
+        guard let keywordPath = Bundle.main.path(forResource: "Hey-Rex_en_ios_v3_0_0", ofType: "ppn") else {
+            print("[Wake Word] ❌ Hey Rex wake word model not found")
             return
         }
+        
+        print("[Wake Word] ✅ Found Hey Rex wake word model at: \(keywordPath)")
         do {
             porcupineManager = try PorcupineManager(
                 accessKey: "93LqowKUjtFKhB/AUeeGI529BXWBKCA5tgs8E3pGEsB92reoD6lO2A==",
                 keywordPath: keywordPath,
                 onDetection: { [weak self] _ in
-                    print("Wake word detected!")
+                    print("[Wake Word] 🎯 Hey Rex detected!")
                     DispatchQueue.main.async {
+                        print("[Wake Word] Processing wake word detection...")
+                        // Wait 3 seconds after "Hey Rex" before responding
                         if self?.isInConversation == false {
+                            print("[Wake Word] Starting new conversation with 3-second delay...")
+                            self?.feedbackMessage = "Hey Rex heard... (waiting 3 seconds)"
+                            self?.isListening = true
+                            
+                            // Wait 3 seconds before responding (in case user is still speaking)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + (self?.postWakeWordDelay ?? 3.0)) {
+                                print("[Wake Word] 3-second delay complete, now responding...")
+                                self?.speakWithPersonality("I'm here to coach you. What's your focus today?", style: .supportive)
+                                self?.feedbackMessage = "Coach is listening..."
+                                
+                                // Start listening after speech completes
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                    print("[Wake Word] Starting speech recognition...")
                             self?.startConversation()
+                                }
+                            }
                         } else {
+                            print("[Wake Word] Already in conversation, resetting timeout...")
                             self?.resetConversationTimeout()
                         }
                     }
@@ -233,7 +416,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             if let manager = porcupineManager {
                 try manager.start()
                 isWakeWordActive = true
-                print("Wake word detection started (global)")
+                print("[Wake Word] ✅ Wake word detection started successfully!")
+            } else {
+                print("[Wake Word] ❌ PorcupineManager is nil!")
             }
         } catch {
             print("Failed to start wake word detection: \(error)")
@@ -367,6 +552,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 if !text.isEmpty {
                     lastTranscription = text
                     hasReceivedPartialResult = true
+                    
+                    // Cancel conversation timeout since user is speaking
+                    self.conversationTimeoutTimer?.invalidate()
+                    print("[Conversation] User started speaking, conversation timeout cancelled")
                 }
                 
                 if result.isFinal {
@@ -378,11 +567,11 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                         
                         if !text.isEmpty {
                             self.feedbackMessage = "Processing..."
-                            self.handleRecognizedText(text)
+                            self.processWithOpenAI(text)
                         } else if hasReceivedPartialResult {
                             // Use partial result if final is empty
                             self.feedbackMessage = "Processing..."
-                            self.handleRecognizedText(lastTranscription)
+                            self.processWithOpenAI(lastTranscription)
                         } else {
                             self.feedbackMessage = "Didn't catch that. Try again."
                         }
@@ -400,7 +589,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                         
                         if !lastTranscription.isEmpty {
                             self.feedbackMessage = "Processing..."
-                            self.handleRecognizedText(lastTranscription)
+                            self.processWithOpenAI(lastTranscription)
                         } else {
                             self.feedbackMessage = "Didn't catch that. Try again."
                         }
@@ -450,126 +639,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         }
     }
     
-    private func handleRecognizedText(_ text: String) {
-        self.feedbackMessage = "Processing..."
-        let userMessage = text
-        
-        // Add workout context if in workout mode
-        var enhancedMessage = userMessage
-        if isWorkoutMode, let exercise = currentExercise {
-            enhancedMessage = "I'm doing \(exercise). \(userMessage)"
-        }
-        
-        conversationHistory.append(["role": "user", "content": enhancedMessage])
-        sendToOpenAI(conversation: conversationHistory) { response in
-            DispatchQueue.main.async {
-                self.conversationHistory.append(["role": "assistant", "content": response])
-                self.aiResponse = response
-                self.feedbackMessage = response
-                self.speak(response)
-                self.resetConversationTimeout()
-            }
-        }
-    }
+    // MARK: - Removed Duplicate Methods
+    // All speech and OpenAI handling now goes through the premium system above
     
-    private func sendToOpenAI(conversation: [[String: String]], completion: @escaping (String) -> Void) {
-        guard let apiKey = Bundle.main.object(forInfoDictionaryKey: "OPENAI_API_KEY") as? String, !apiKey.isEmpty else {
-            DispatchQueue.main.async {
-                self.feedbackMessage = "Please add your OpenAI API key in Info.plist"
-                completion("API key not found. Please add OPENAI_API_KEY to Info.plist")
-            }
-            return
-        }
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Optimize for faster responses
-        let body: [String: Any] = [
-            "model": "gpt-4o-mini", // Use faster model
-            "messages": conversation,
-            "temperature": 0.8, // Slightly higher for more personality
-            "max_tokens": 40, // Even shorter for speed
-            "presence_penalty": 0.0, // Remove penalties for faster responses
-            "frequency_penalty": 0.0,
-            "top_p": 0.9 // Focus on most likely responses
-        ]
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        } catch {
-            DispatchQueue.main.async {
-                self.feedbackMessage = "Error preparing request"
-                completion("Failed to prepare request")
-            }
-            return
-        }
-        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let self = self else { return }
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.feedbackMessage = "Network error"
-                    completion("Network error: \(error.localizedDescription)")
-                }
-                return
-            }
-            guard let data = data else {
-                DispatchQueue.main.async {
-                    self.feedbackMessage = "No response received"
-                    completion("No data received from server")
-                }
-                return
-            }
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let choices = json["choices"] as? [[String: Any]],
-                   let message = choices.first?["message"] as? [String: Any],
-                   let content = message["content"] as? String {
-                    DispatchQueue.main.async {
-                        completion(content.trimmingCharacters(in: .whitespacesAndNewlines))
-                    }
-                } else {
-                    throw NSError(domain: "OpenAI", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response format"])
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.feedbackMessage = "Error processing response"
-                    completion("Failed to process response: \(error.localizedDescription)")
-                }
-            }
-        }
-        task.resume()
-    }
-    
-    private func speak(_ text: String) {
-        // Configure audio session for playback
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("[Speech] Failed to configure audio session for playback: \(error)")
-        }
-        
-        // Use Siri/enhanced voice, slow rate, etc. (see previous logic)
-        let voices = AVSpeechSynthesisVoice.speechVoices()
-        let preferredVoice = voices.first {
-            $0.identifier.contains("com.apple.ttsbundle.Siri") && $0.language == "en-US"
-        } ?? voices.first {
-            $0.quality == .enhanced && $0.language == "en-US"
-        } ?? AVSpeechSynthesisVoice(language: "en-US")
-        if let voice = preferredVoice {
-            let utterance = AVSpeechUtterance(string: text)
-            utterance.voice = voice
-            utterance.rate = 0.6 // Even faster speech
-            utterance.pitchMultiplier = 1.0
-            utterance.volume = 1.0
-            utterance.preUtteranceDelay = 0.02 // Minimal delay
-            utterance.postUtteranceDelay = 0.05 // Minimal delay
-            synthesizer.speak(utterance)
-        }
-    }
+
 }
 
 // Add AVSpeechSynthesizerDelegate to auto-resume listening after speaking
@@ -580,11 +653,21 @@ extension VoiceAssistantManager: AVSpeechSynthesizerDelegate {
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         print("[Audio] Finished speaking: \(utterance.speechString)")
-        // After speaking, auto-resume listening for follow-up (unless view is gone)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { // Reduced delay
+        print("[Conversation] Starting 3-second listening window for follow-up...")
+        
+        // After speaking, start listening immediately for follow-up
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.aiResponse = nil
             if self.isInConversation {
+                self.feedbackMessage = "Listening for 3 seconds..."
                 self.startSpeechRecognition()
+                
+                // Set timer to end conversation after 3 seconds of silence
+                self.resetConversationTimeout()
+                self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
+                    print("[Conversation] 3-second listening window expired, ending conversation")
+                    self.endConversation()
+                }
             }
         }
     }

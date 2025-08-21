@@ -34,4 +34,4 @@ Set/Info.plist
 
 # Environment variables
 .env
-.env.* 
+.env.*

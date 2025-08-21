@@ -91,7 +91,7 @@ struct MessagesView: View {
                     .background(AppTheme.background)
                 }
             }
-            .navigationTitle("AI Coach")
+            .navigationTitle("Rex - Your AI Coach")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(AppTheme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)

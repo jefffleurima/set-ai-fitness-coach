@@ -55,7 +55,7 @@ Set/
 ## 🔑 Features
 
 - **AR Form Analysis**: Real-time exercise form correction using ARKit
-- **Voice Assistant**: "Hey Coach" wake word detection and voice commands
+- **Voice Assistant**: "Hey Rex" wake word detection and voice commands
 - **AI Coaching**: Personalized workout advice powered by OpenAI
 - **Activity Tracking**: Apple Fitness-style activity rings with HealthKit
 - **Exercise Library**: Comprehensive workout database with instructions
