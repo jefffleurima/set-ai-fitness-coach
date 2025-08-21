@@ -22,10 +22,10 @@ enum CoachingStyle {
 struct CoachingPersonality {
     var style: CoachingStyle
     let name: String
-    var voiceCharacteristics: VoiceCharacteristics
+    var voiceCharacteristics: LegacyVoiceCharacteristics
 }
 
-struct VoiceCharacteristics {
+struct LegacyVoiceCharacteristics {
     let rate: Float
     let pitch: Float
     let volume: Float
@@ -67,11 +67,11 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var coachingPhrases: [String: [String]] = [:]
     
     // Premium voice characteristics - Humanized for natural conversation
-    private let premiumVoices: [CoachingStyle: VoiceCharacteristics] = [
-        .motivational: VoiceCharacteristics(rate: 0.50, pitch: 1.15, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .technical: VoiceCharacteristics(rate: 0.55, pitch: 1.0, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .supportive: VoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .professional: VoiceCharacteristics(rate: 0.58, pitch: 0.98, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+    private let premiumVoices: [CoachingStyle: LegacyVoiceCharacteristics] = [
+        .motivational: LegacyVoiceCharacteristics(rate: 0.50, pitch: 1.15, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .technical: LegacyVoiceCharacteristics(rate: 0.55, pitch: 1.0, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .supportive: LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
+        .professional: LegacyVoiceCharacteristics(rate: 0.58, pitch: 0.98, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
     ]
     
     // Fast response cache for common form corrections
@@ -92,23 +92,20 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         "deadlifts_backAngle_bad": "Keep your back flat! Don't round it.",
         "deadlifts_kneeAngle_bad": "Control your knee bend.",
 
-        // Push-ups
-        "pushups_elbowAngle_bad": "Aim for 90 degrees at your elbows.",
-        "pushups_bodyAlignmentAngle_bad": "Keep your body in a straight line.",
+        
 
         // Lunges
         "lunges_frontKneeAngle_bad": "Your front knee should be at a 90-degree angle.",
         "lunges_backKneeAngle_bad": "Lower your back knee closer to the ground.",
         
-        // Plank
-        "plank_bodyAlignmentAngle_bad": "Keep your hips level with your shoulders. Don't sag!"
+        
     ]
     
     // Conversation history removed - now handled by individual processWithOpenAI calls
     
     override init() {
         // Initialize with supportive personality by default
-        let defaultVoice = VoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+        let defaultVoice = LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
         currentPersonality = CoachingPersonality(style: .supportive, name: "Hey Rex Coach", voiceCharacteristics: defaultVoice)
         
         super.init()

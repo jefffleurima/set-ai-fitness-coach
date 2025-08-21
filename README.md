@@ -25,6 +25,8 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 - 🧠 **Comprehensive knowledge** - Fitness, nutrition, supplements, health guidance
 - ⚡ **Ultra-responsive** - 2-second max response time with smart delays
 - 🎯 **Contextual coaching** - Knows your workout and provides targeted advice
+- 🚨 **Professional speech priority system** - Safety alerts, form corrections, timing, encouragement
+- ♿ **VoiceOver compatibility** - Built-in accessibility support
 
 ### 📊 **Activity Tracking**
 - Apple Fitness-style activity rings
@@ -50,6 +52,20 @@ Rex isn't just a voice assistant - he's your intelligent fitness companion:
 - *"How much rest should I take between sets?"*
 - *"What should I eat for muscle growth?"*
 
+### **🚨 Professional Speech Priority System:**
+Rex uses enterprise-grade speech management with 4 priority levels:
+
+- **🚨 Immediate Interrupt** - Safety alerts and form corrections stop everything
+- **⏱️ Immediate Blocking** - Set/rest timing and critical coaching  
+- **💪 Normal Priority** - Standard form feedback and encouragement
+- **🎉 Low Priority** - Background motivation that can be interrupted
+
+**Smart Features:**
+- **Thread-safe queue management** with professional interruption handling
+- **VoiceOver compatibility** - Automatically defers to accessibility when needed
+- **Contextual responses** - Different priorities for different workout phases
+- **Timeout protection** - Prevents stuck speech and ensures responsiveness
+
 ## 🚀 Getting Started
 
 See [SETUP.md](SETUP.md) for detailed installation and configuration instructions.
@@ -63,6 +79,8 @@ Built with modern iOS development practices and premium voice AI:
 - **iOS Speech Framework** - Advanced speech recognition with noise filtering
 - **AVFoundation** - Professional audio session management
 - **OpenAI GPT-4** - Intelligent conversational AI with fitness expertise
+- **Professional Speech Priority System** - Enterprise-grade queue management with 4 priority levels
+- **VoiceOver Integration** - Seamless accessibility support for all users
 
 ### **📱 Core Technologies:**
 - **SwiftUI** - Responsive, declarative user interface
@@ -81,6 +99,8 @@ Designed and tested for real-world gym environments:
 - **Natural conversation** - Tested for human-like interaction patterns
 - **Response speed** - Validated 2-second max response times
 - **Knowledge accuracy** - Verified fitness, nutrition, and health expertise
+- **Speech priority system** - Validated interruption handling and queue management
+- **Accessibility testing** - VoiceOver compatibility verified across scenarios
 
 ### **🏋️ Gym Environment:**
 - **Various lighting conditions** - From dark to bright gym lighting
