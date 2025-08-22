@@ -187,70 +187,60 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     
 
     
-    // MARK: - Premium Speech Synthesis
+    // MARK: - Professional Speech Synthesis with ElevenLabs
     func speakWithPersonality(_ text: String, style: CoachingStyle? = nil) {
         let targetStyle = style ?? currentPersonality.style
-        let voiceChar = premiumVoices[targetStyle] ?? currentPersonality.voiceCharacteristics
         
-        print("[Premium Speech] Speaking with \(targetStyle) style: \(text)")
+        print("🎤 [ElevenLabs] Speaking with \(targetStyle) style: \(text)")
+        
+        // Use ElevenLabs for human-like speech synthesis
+        ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { success in
+            if success {
+                print("✅ [ElevenLabs] Successfully played human-like speech: '\(text)'")
+            } else {
+                print("⚠️ [ElevenLabs] Failed to play speech, falling back to Apple TTS")
+                // Fallback to Apple TTS if ElevenLabs fails
+                self.fallbackToAppleTTS(text, style: targetStyle)
+            }
+        }
+    }
+    
+    // MARK: - Fallback to Apple TTS
+    private func fallbackToAppleTTS(_ text: String, style: CoachingStyle) {
+        let voiceChar = premiumVoices[style] ?? currentPersonality.voiceCharacteristics
         
         // Stop any current speech
         if synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
-            print("[Premium Speech] Stopped current speech")
+            print("[Fallback TTS] Stopped current speech")
         }
         
-        // Configure audio session for premium playback
+        // Configure audio session
         do {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playAndRecord, mode: .voicePrompt, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            print("[Premium Speech] Audio session configured with speaker priority")
         } catch {
-            print("[Premium Speech] ❌ Audio session error: \(error.localizedDescription)")
-            // Fallback: Try simpler configuration
-            do {
-                let audioSession = AVAudioSession.sharedInstance()
-                try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker])
-                try audioSession.setActive(true)
-                print("[Premium Speech] ✅ Fallback audio session configured")
-            } catch {
-                print("[Premium Speech] ❌ Fallback audio session also failed: \(error.localizedDescription)")
-            }
+            print("[Fallback TTS] ❌ Audio session error: \(error.localizedDescription)")
         }
         
-        // Create premium utterance with humanized settings
+        // Create utterance with Apple TTS
         let utterance = AVSpeechUtterance(string: text)
-        
-        // Apply humanized voice characteristics
         utterance.rate = voiceChar.rate
         utterance.volume = voiceChar.volume
         utterance.pitchMultiplier = voiceChar.pitch
-        
-        // Add natural pauses for human-like speech
         utterance.preUtteranceDelay = 0.1
         utterance.postUtteranceDelay = 0.2
         
-        // Use premium voice if available, with fallback to best quality
         if let voice = AVSpeechSynthesisVoice(identifier: voiceChar.voiceIdentifier) {
             utterance.voice = voice
-            print("[Premium Speech] Using premium voice: \(voice.name)")
         } else {
-            // Fallback to highest quality available voice
-            let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
-            utterance.voice = voices.first { $0.quality == .enhanced } ?? 
-                             voices.first { $0.quality == .default } ??
-                             AVSpeechSynthesisVoice(language: "en-US")
-            print("[Premium Speech] Using fallback voice: \(utterance.voice?.name ?? "default")")
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
         }
         
-        // Set delegate for callbacks
         synthesizer.delegate = self
-        
-        // Start premium speech
-        print("[Premium Speech] Starting premium speech synthesis...")
         synthesizer.speak(utterance)
-        print("[Premium Speech] ✅ Premium speech initiated for: '\(text)'")
+        print("[Fallback TTS] Using Apple TTS for: '\(text)'")
     }
     
     // MARK: - Legacy Speech Method (Compatibility)

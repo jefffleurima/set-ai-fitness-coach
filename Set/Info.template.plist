@@ -16,6 +16,8 @@
 	<string>We need photo library access to save your workout videos.</string>
 	<key>OPENAI_API_KEY</key>
 	<string>YOUR_OPENAI_API_KEY_HERE</string>
+	<key>ELEVENLABS_API_KEY</key>
+	<string>YOUR_ELEVENLABS_API_KEY_HERE</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict/>

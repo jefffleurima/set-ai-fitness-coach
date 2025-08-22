@@ -20,7 +20,7 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 
 ### 🎤 **Rex Voice AI System**
 - 🎙️ **"Hey Rex" wake word detection** - Custom trained model for gym environments
-- 🗣️ **Human-like voice responses** - Natural speech patterns, not robotic
+- 🗣️ **Human-like voice responses** - ElevenLabs AI voices, not robotic Apple TTS
 - 💬 **Continuous conversation flow** - 3-second listening after responses
 - 🧠 **Comprehensive knowledge** - Fitness, nutrition, supplements, health guidance
 - ⚡ **Ultra-responsive** - 2-second max response time with smart delays
@@ -40,7 +40,7 @@ Rex isn't just a voice assistant - he's your intelligent fitness companion:
 
 ### **🎯 What Makes Rex Special:**
 - **"Hey Rex"** - Natural wake word that won't conflict with other assistants
-- **Premium voice quality** - Sounds like a real personal trainer, not a robot
+- **Premium voice quality** - ElevenLabs AI voices that sound like real personal trainers
 - **Smart conversation** - Remembers context, no need to repeat "Hey Rex" constantly
 - **Broad expertise** - Ask about workouts, nutrition, supplements, recovery, anything fitness-related
 - **Instant responses** - Get coaching advice without breaking your flow
@@ -76,6 +76,7 @@ Built with modern iOS development practices and premium voice AI:
 
 ### **🎤 Rex Voice System:**
 - **Picovoice Porcupine** - Custom "Hey Rex" wake word model
+- **ElevenLabs AI Voices** - Human-like speech synthesis with coaching personalities
 - **iOS Speech Framework** - Advanced speech recognition with noise filtering
 - **AVFoundation** - Professional audio session management
 - **OpenAI GPT-4** - Intelligent conversational AI with fitness expertise
@@ -133,20 +134,38 @@ This project is licensed under a **Proprietary Software License** - see the [LIC
 ### **API Key Management:**
 - ✅ **Info.plist**: Safe for development (excluded from git)
 - ❌ **Never hardcode**: Don't put keys directly in Swift files
-- 📋 **Use template**: Copy `Info.template.plist` → `Info.plist` and add your key
+- 📋 **Use template**: Copy `Info.template.plist` → `Info.plist` and add your keys
+
+### **Required API Keys:**
+
+#### **1. OpenAI API Key**
+- Used for: AI coaching conversations and fitness advice
+- Get it from: [OpenAI Platform](https://platform.openai.com/api-keys)
+- Cost: ~$0.01-0.10 per conversation
+
+#### **2. ElevenLabs API Key (Recommended)**
+- Used for: Human-like voice synthesis (replaces robotic Apple TTS)
+- Get it from: [ElevenLabs](https://elevenlabs.io/) (Free tier available)
+- Cost: Free tier includes 10,000 characters/month
+- **Why ElevenLabs?** Professional voice quality that sounds like real trainers
 
 ### **For Contributors:**
 ```bash
 # 1. Setup your Info.plist
 cp Set/Info.template.plist Set/Info.plist
 
-# 2. Add your OpenAI API key to Info.plist
-# Replace "YOUR_OPENAI_API_KEY_HERE" with your actual key
+# 2. Add your API keys to Info.plist
+# Replace "YOUR_OPENAI_API_KEY_HERE" with your OpenAI key
+# Replace "YOUR_ELEVENLABS_API_KEY_HERE" with your ElevenLabs key
 
 # 3. Never commit Info.plist with real keys!
 ```
 
-**⚠️ Your API key is automatically protected by `.gitignore`**
+**⚠️ Your API keys are automatically protected by `.gitignore`**
+
+### **🎤 Voice Quality Comparison:**
+- **Apple TTS (Fallback)**: Robotic, limited personality, basic quality
+- **ElevenLabs (Primary)**: Human-like, emotional inflection, coaching personalities
 
 ## 📞 Contact
 
