@@ -329,6 +329,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private func processWithOpenAI(_ userInput: String) {
         print("[OpenAI] Processing: \(userInput)")
         
+        // Determine coaching style based on user input and context
+        let coachingStyle = determineCoachingStyle(for: userInput)
+        print("[Context] Using \(coachingStyle) style for: \(userInput)")
+        
         // Use the unified OpenAI client
         OpenAIClient.shared.sendMessage(prompt: userInput) { [weak self] result in
             DispatchQueue.main.async {
@@ -339,8 +343,8 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                     // Update UI
                     self?.feedbackMessage = response
                     
-                    // Speak the response using premium voice
-                    self?.speakWithPersonality(response, style: .supportive)
+                    // Speak the response using the determined coaching style
+                    self?.speakWithPersonality(response, style: coachingStyle)
                     
                     // Clear message after speaking
                     DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
@@ -354,6 +358,64 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                     self?.speakWithPersonality("I'm having trouble processing your request right now. Please try again.", style: .supportive)
                 }
             }
+        }
+    }
+    
+    // MARK: - Smart Context Detection
+    private func determineCoachingStyle(for userInput: String) -> CoachingStyle {
+        let input = userInput.lowercased()
+        
+        // Check for form-related questions
+        if input.contains("form") || input.contains("technique") || input.contains("how to") || input.contains("proper") {
+            return .technical
+        }
+        
+        // Check for motivational requests
+        if input.contains("motivate") || input.contains("pump") || input.contains("energy") || input.contains("fire") {
+            return .motivational
+        }
+        
+        // Check for workout planning or professional advice
+        if input.contains("program") || input.contains("routine") || input.contains("plan") || input.contains("schedule") {
+            return .professional
+        }
+        
+        // Check if user is struggling or needs support
+        if input.contains("tired") || input.contains("hard") || input.contains("difficult") || input.contains("help") {
+            return .supportive
+        }
+        
+        // Check current workout context
+        if isWorkoutMode {
+            if currentExercise?.lowercased().contains("squat") == true || currentExercise?.lowercased().contains("deadlift") == true {
+                return .technical // More technical for complex lifts
+            } else {
+                return .motivational // More motivational for general workouts
+            }
+        }
+        
+        // Default to supportive for general conversation
+        return .supportive
+    }
+    
+    // MARK: - Contextual Greetings
+    private func getContextualGreeting() -> String {
+        if isWorkoutMode {
+            if let exercise = currentExercise {
+                return "Ready to crush those \(exercise)? I'm here to coach you through every rep!"
+            } else {
+                return "Workout mode activated! What are we working on today?"
+            }
+        }
+        
+        // Check time of day for personalized greeting
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 {
+            return "Good morning! Ready to start your day with some fitness?"
+        } else if hour < 17 {
+            return "Good afternoon! What's your fitness focus today?"
+        } else {
+            return "Evening workout time! Let's get after it!"
         }
     }
     
@@ -382,7 +444,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                             // Wait 3 seconds before responding (in case user is still speaking)
                             DispatchQueue.main.asyncAfter(deadline: .now() + (self?.postWakeWordDelay ?? 3.0)) {
                                 print("[Wake Word] 3-second delay complete, now responding...")
-                                self?.speakWithPersonality("I'm here to coach you. What's your focus today?", style: .supportive)
+                                
+                                // Choose greeting based on context
+                                let greeting = self?.getContextualGreeting() ?? "I'm here to coach you. What's your focus today?"
+                                self?.speakWithPersonality(greeting, style: .supportive)
                                 self?.feedbackMessage = "Coach is listening..."
                                 
                                 // Start listening after speech completes
