@@ -94,9 +94,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
 
         
 
-        // Lunges
-        "lunges_frontKneeAngle_bad": "Your front knee should be at a 90-degree angle.",
-        "lunges_backKneeAngle_bad": "Lower your back knee closer to the ground.",
+
         
         
     ]

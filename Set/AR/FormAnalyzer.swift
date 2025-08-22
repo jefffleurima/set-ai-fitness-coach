@@ -7,9 +7,6 @@ class FormAnalyzer {
     enum ExerciseType: String {
         case squats = "squats"
         case deadlifts = "deadlifts"
-        case pushups = "push-ups"
-        case lunges = "lunges"
-        case plank = "plank"
         case general = "general"
     }
     
@@ -71,15 +68,8 @@ class FormAnalyzer {
         case "squat":
             totalScore += analyzeSquatForm(observation)
             validChecks += 1
-        case "pushup":
-            totalScore += analyzePushupForm(observation)
-            validChecks += 1
-        case "plank":
-            totalScore += analyzePlankForm(observation)
-            validChecks += 1
-        case "lunge":
-            totalScore += analyzeLungeForm(observation)
-            validChecks += 1
+        
+
         default:
             // General analysis for unknown exercises
             totalScore += analyzeGeneralForm(observation)
@@ -148,129 +138,11 @@ class FormAnalyzer {
         return min(100, score)
     }
     
-    private func analyzePushupForm(_ observation: VNHumanBodyPose3DObservation) -> Float {
-        var score: Float = 0
-        
-        do {
-            let leftShoulder = try observation.recognizedPoint(.leftShoulder)
-            let leftElbow = try observation.recognizedPoint(.leftElbow)
-            let leftWrist = try observation.recognizedPoint(.leftWrist)
-            let rightShoulder = try observation.recognizedPoint(.rightShoulder)
-            let rightElbow = try observation.recognizedPoint(.rightElbow)
-            let rightWrist = try observation.recognizedPoint(.rightWrist)
-            let spine = try observation.recognizedPoint(.spine)
-            
-            // Calculate arm angles
-            let leftArmAngle = calculate3DAngle(leftShoulder.position, leftElbow.position, leftWrist.position)
-            let rightArmAngle = calculate3DAngle(rightShoulder.position, rightElbow.position, rightWrist.position)
-            
-            // Score based on proper pushup form
-            if leftArmAngle > 80 && leftArmAngle < 100 {
-                score += 40 // Good arm angle
-            } else if leftArmAngle > 70 && leftArmAngle < 110 {
-                score += 30 // Acceptable arm angle
-            }
-            
-            if rightArmAngle > 80 && rightArmAngle < 100 {
-                score += 40 // Good arm angle
-            } else if rightArmAngle > 70 && rightArmAngle < 110 {
-                score += 30 // Acceptable arm angle
-            }
-            
-            // Check for straight body line
-            let bodyAlignment = checkBodyAlignment(spine.position, leftShoulder.position, leftWrist.position)
-            if bodyAlignment {
-                score += 20 // Good body alignment
-            }
-            
-        } catch {
-            print("❌ Could not analyze pushup form: \(error)")
-        }
-        
-        return min(100, score)
-    }
+
     
-    private func analyzePlankForm(_ observation: VNHumanBodyPose3DObservation) -> Float {
-        var score: Float = 0
-        
-        do {
-            let leftShoulder = try observation.recognizedPoint(.leftShoulder)
-            let leftElbow = try observation.recognizedPoint(.leftElbow)
-            let leftHip = try observation.recognizedPoint(.leftHip)
-            let leftKnee = try observation.recognizedPoint(.leftKnee)
-            let spine = try observation.recognizedPoint(.spine)
-            
-            // Check for straight body line
-            let bodyAlignment = checkBodyAlignment(spine.position, leftShoulder.position, leftHip.position)
-            if bodyAlignment {
-                score += 50 // Good body alignment
-            } else {
-                score += 30 // Acceptable alignment
-            }
-            
-            // Check for proper elbow angle
-            let elbowAngle = calculate3DAngle(leftShoulder.position, leftElbow.position, leftHip.position)
-            if elbowAngle > 85 && elbowAngle < 95 {
-                score += 30 // Good elbow angle
-            } else if elbowAngle > 80 && elbowAngle < 100 {
-                score += 20 // Acceptable elbow angle
-            }
-            
-            // Check for hip stability
-            let hipStability = checkHipStability(leftHip.position, leftKnee.position)
-            if hipStability {
-                score += 20 // Good hip stability
-            }
-            
-        } catch {
-            print("❌ Could not analyze plank form: \(error)")
-        }
-        
-        return min(100, score)
-    }
+
     
-    private func analyzeLungeForm(_ observation: VNHumanBodyPose3DObservation) -> Float {
-        var score: Float = 0
-        
-        do {
-            let leftHip = try observation.recognizedPoint(.leftHip)
-            let leftKnee = try observation.recognizedPoint(.leftKnee)
-            let leftAnkle = try observation.recognizedPoint(.leftAnkle)
-            let rightHip = try observation.recognizedPoint(.rightHip)
-            let rightKnee = try observation.recognizedPoint(.rightKnee)
-            let rightAnkle = try observation.recognizedPoint(.rightAnkle)
-            
-            // Calculate knee angles
-            let leftKneeAngle = calculate3DAngle(leftHip.position, leftKnee.position, leftAnkle.position)
-            let rightKneeAngle = calculate3DAngle(rightHip.position, rightKnee.position, rightAnkle.position)
-            
-            // Score based on proper lunge form
-            if leftKneeAngle > 85 && leftKneeAngle < 95 {
-                score += 40 // Good front knee angle
-            } else if leftKneeAngle > 80 && leftKneeAngle < 100 {
-                score += 30 // Acceptable front knee angle
-            }
-            
-            if rightKneeAngle > 85 && rightKneeAngle < 95 {
-                score += 40 // Good back knee angle
-            } else if rightKneeAngle > 80 && rightKneeAngle < 100 {
-                score += 30 // Acceptable back knee angle
-            }
-            
-            // Check for proper depth
-            let depth = calculateLungeDepth(leftKnee.position, rightKnee.position)
-            if depth > 0.3 {
-                score += 20 // Good depth
-            } else if depth > 0.2 {
-                score += 10 // Acceptable depth
-            }
-            
-        } catch {
-            print("❌ Could not analyze lunge form: \(error)")
-        }
-        
-        return min(100, score)
-    }
+
     
     private func analyzePosture(_ observation: VNHumanBodyPose3DObservation) -> Float {
         var score: Float = 0
@@ -406,11 +278,7 @@ class FormAnalyzer {
         return balance
     }
     
-    private func calculateLungeDepth(_ frontKneePos: simd_float4x4, _ backKneePos: simd_float4x4) -> Float {
-        let frontX = frontKneePos[3][0]
-        let backX = backKneePos[3][0]
-        return abs(frontX - backX)
-    }
+
     
     private func generateFeedback(_ observation: VNHumanBodyPose3DObservation, exercise: Exercise, score: Float) -> String {
         if score >= 85 {

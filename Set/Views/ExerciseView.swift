@@ -14,7 +14,7 @@ struct ExerciseView: View {
     private let exercises: [ExerciseCardData] = [
         ExerciseCardData(name: "Squat", muscle: "Glutes", description: "A fundamental lower body exercise targeting glutes, quads, and hamstrings.", imageName: "figure.strengthtraining.traditional", tips: ["Keep your back straight", "Knees behind toes", "Go as deep as possible"]),
         ExerciseCardData(name: "Deadlift", muscle: "Glutes", description: "A compound movement for glutes, hamstrings, and lower back.", imageName: "figure.strengthtraining.functional", tips: ["Hinge at hips", "Keep bar close", "Drive through heels"]),
-        ExerciseCardData(name: "Lunge", muscle: "Legs", description: "A unilateral leg exercise for quads, glutes, and balance.", imageName: "figure.walk", tips: ["Upright torso", "Front knee over ankle", "Lower until back knee almost touches floor"]),
+
     ]
     
     private let columns = [
@@ -42,8 +42,7 @@ struct ExerciseView: View {
                         // Fix name matching - map UI names to Exercise model names
                         let exerciseNameMap = [
                             "Squat": "squats",
-                            "Deadlift": "deadlifts", 
-                            "Lunge": "lunges"
+                            "Deadlift": "deadlifts"
                         ]
                         
                         let modelName = exerciseNameMap[exercise.name] ?? exercise.name.lowercased()

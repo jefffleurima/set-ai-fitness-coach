@@ -156,29 +156,6 @@ extension Exercise {
             ],
             squatVariation: nil
         ),
-        // Lunges
-        Exercise(
-            name: "lunges",
-            category: .legs,
-            description: "An effective exercise for targeting each leg individually, improving balance and strength.",
-            imageName: "lunge_image",
-            formRequirements: [
-                "bottom": [
-                    "frontKneeAngle": 80.0...100.0,
-                    "backKneeAngle": 80.0...110.0,
-                    "torsoAngle": 80.0...100.0 // Torso relative to vertical
-                ],
-                "top": [
-                    "frontKneeAngle": 160.0...190.0,
-                    "backKneeAngle": 160.0...190.0,
-                    "torsoAngle": 85.0...95.0
-                ]
-            ],
-            keyJoints: [
-                [.leftHip, .leftKnee, .leftAnkle],
-                [.rightHip, .rightKnee, .rightAnkle]
-            ],
-            squatVariation: nil
-        )
+
     ]
 } 
