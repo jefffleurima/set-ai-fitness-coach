@@ -359,7 +359,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     
     // MARK: - Wake Word
     func startWakeWordDetection() {
-        guard let keywordPath = Bundle.main.path(forResource: "Hey-Rex_en_ios_v3_0_0", ofType: "ppn") else {
+        guard let keywordPath = Bundle.main.path(forResource: "Hey-Rex_en_ios_v3_0_0/Hey-Rex_en_ios_v3_0_0", ofType: "ppn") else {
             print("[Wake Word] ❌ Hey Rex wake word model not found")
             return
         }
