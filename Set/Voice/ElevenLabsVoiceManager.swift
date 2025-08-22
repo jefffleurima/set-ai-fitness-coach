@@ -12,10 +12,10 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
     
     // MARK: - Voice IDs for different coaching styles
     private let voiceIds: [CoachingStyle: String] = [
-        .motivational: "pNInz6obpgDQGcFmaJgB", // Adam - Energetic male voice
-        .technical: "VR6AewLTigWG4xSOukaG",    // Josh - Clear, professional
-        .supportive: "EXAVITQu4vr4xnSDxMaL",   // Bella - Warm, encouraging
-        .professional: "21m00Tcm4TlvDq8ikWAM"  // Rachel - Professional, clear
+        .motivational: "fPPaDY0hdGB9BZHjuhwb", // Rex - Your custom female fitness coach voice
+        .technical: "fPPaDY0hdGB9BZHjuhwb",    // Rex - Your custom female fitness coach voice
+        .supportive: "fPPaDY0hdGB9BZHjuhwb",   // Rex - Your custom female fitness coach voice
+        .professional: "fPPaDY0hdGB9BZHjuhwb"  // Rex - Your custom female fitness coach voice
     ]
     
     // MARK: - Voice Settings
