@@ -50,66 +50,51 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var audioEngine = AVAudioEngine()
     private let synthesizer = AVSpeechSynthesizer()
     private var speechTimeoutTimer: Timer?
-    private let speechPauseTimeout: TimeInterval = 0.8 // Increased from 0.4 to reduce timeout warnings
+    private let speechPauseTimeout: TimeInterval = 0.5 // Reduced for more responsive listening
     private var conversationTimeoutTimer: Timer?
-    private let conversationTimeout: TimeInterval = 8.0
-    private let postWakeWordDelay: TimeInterval = 3.0  // Wait 3 seconds after "Hey Rex"
-    private let postResponseListeningTime: TimeInterval = 3.0  // Listen for 3 seconds after response // Shorter timeout for faster responses
+    private let conversationTimeout: TimeInterval = 4.0  // Increased to give users more time to speak
+    private let postWakeWordDelay: TimeInterval = 2.0  // Wait 2 seconds after "Hey Rex"
+    private let postResponseListeningTime: TimeInterval = 4.0  // Listen for 4 seconds after response to allow natural conversation
     private var isInConversation = false
-    private var lastFormFeedbackTime: Date = Date()
-    private let formFeedbackCooldown: TimeInterval = 2.0 // Prevent spam
+    private var isInCheckInPhase = false // Track if we're in the check-in phase
+
     private var workoutContext: [String: Any] = [:]
     private var isProcessingSpeech = false // Prevent multiple simultaneous processing
+    private var isProcessingWakeWord = false // Prevent duplicate wake word processing
     
     // MARK: - Premium Voice AI Properties
     private var currentContext: CoachingContext = .generalChat
     private var currentPersonality: CoachingPersonality
-    private var coachingPhrases: [String: [String]] = [:]
     
-    // Premium voice characteristics - Humanized for natural conversation
+    // Premium voice characteristics - Humanized female voices to match Rex
     private let premiumVoices: [CoachingStyle: LegacyVoiceCharacteristics] = [
-        .motivational: LegacyVoiceCharacteristics(rate: 0.50, pitch: 1.15, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .technical: LegacyVoiceCharacteristics(rate: 0.55, pitch: 1.0, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .supportive: LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact"),
-        .professional: LegacyVoiceCharacteristics(rate: 0.58, pitch: 0.98, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+        .motivational: LegacyVoiceCharacteristics(rate: 0.50, pitch: 1.15, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.Samantha-compact"),
+        .technical: LegacyVoiceCharacteristics(rate: 0.55, pitch: 1.0, volume: 1.0, voiceIdentifier: "com.apple.voice.compact.en-US.Zoe"),
+        .supportive: LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.Samantha-compact"),
+        .professional: LegacyVoiceCharacteristics(rate: 0.58, pitch: 0.98, volume: 1.0, voiceIdentifier: "com.apple.voice.compact.en-US.Allison")
     ]
     
-    // Fast response cache for common form corrections
-    private let formCorrections: [String: String] = [
-        // General
-        "good_form": "Perfect! Keep it up",
-        "almost_there": "Almost there! Small adjustment",
-        "rep_count": "Great rep! Keep going",
 
-        // Squats
-        "squats_hipAngle_bad": "Hinge more at your hips. Sit back like you're sitting in a chair.",
-        "squats_kneeAngle_bad": "Get deeper. Your thighs should be parallel to the ground.",
-        "squats_torsoAngle_bad": "Keep your chest up but lean forward slightly for balance.",
-        "squats_ankleAngle_bad": "Keep your weight in your heels. Don't let your knees go too far forward.",
-
-        // Deadlifts
-        "deadlifts_hipHingeAngle_bad": "Hinge more at your hips.",
-        "deadlifts_backAngle_bad": "Keep your back flat! Don't round it.",
-        "deadlifts_kneeAngle_bad": "Control your knee bend.",
-
-        
-
-
-        
-        
-    ]
     
     // Conversation history removed - now handled by individual processWithOpenAI calls
     
     override init() {
-        // Initialize with supportive personality by default
-        let defaultVoice = LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.siri_male_en-US_compact")
+        // Initialize with supportive personality by default - using female voice to match Rex
+        let defaultVoice = LegacyVoiceCharacteristics(rate: 0.52, pitch: 1.08, volume: 1.0, voiceIdentifier: "com.apple.ttsbundle.Samantha-compact")
         currentPersonality = CoachingPersonality(style: .supportive, name: "Hey Rex Coach", voiceCharacteristics: defaultVoice)
         
         super.init()
         setupSpeechRecognition()
         synthesizer.delegate = self
-        setupCoachingPhrases()
+        // startWakeWordDetection() - moved to SetApp.swift to prevent duplicate calls
+        
+        // Listen for ElevenLabs speech completion to start conversation flow
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleElevenLabsSpeechFinished),
+            name: .elevenLabsSpeechFinished,
+            object: nil
+        )
     }
     
     // MARK: - Public Interface
@@ -152,38 +137,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         // Don't stop wake word detection - keep it active for seamless experience
     }
     
-    // MARK: - Immediate Form Feedback
-    func provideFormFeedback(type: String, severity: String = "normal") {
-        let now = Date()
-        guard now.timeIntervalSince(lastFormFeedbackTime) >= formFeedbackCooldown else { return }
-        
-        lastFormFeedbackTime = now
-        
-        var message = formCorrections[type] ?? "Adjust your form"
-        
-        // Add urgency for bad form
-        if severity == "bad" {
-            message = "⚠️ " + message
-        } else if severity == "good" {
-            message = "✅ " + message
-        }
-        
-        speakWithPersonality(message, style: .technical)
-    }
-    
-    func speakRepCount(_ count: Int) {
-        // Update workout context
-        workoutContext["repCount"] = count
-        
-        let message = "Great rep \(count)! Keep that form up!"
-        speakWithPersonality(message, style: .technical)
-    }
-    
-    func speakWorkoutComplete() {
-        let repCount = workoutContext["repCount"] as? Int ?? 0
-        let message = "Amazing workout! You completed \(repCount) perfect reps. You crushed it today!"
-        speakWithPersonality(message, style: .technical)
-    }
+
     
 
     
@@ -191,21 +145,56 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     func speakWithPersonality(_ text: String, style: CoachingStyle? = nil) {
         let targetStyle = style ?? currentPersonality.style
         
-        print("🎤 [ElevenLabs] Speaking with \(targetStyle) style: \(text)")
+        print("🎤 [PRIORITY] ElevenLabs Rex voice (PREMIUM) speaking with \(targetStyle) style: \(text)")
         
-        // Use ElevenLabs for human-like speech synthesis
-        ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { success in
+        // PRIORITY: ElevenLabs is PREMIUM - must exhaust ALL possibilities before Apple TTS
+        ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { [weak self] success in
             if success {
-                print("✅ [ElevenLabs] Successfully played human-like speech: '\(text)'")
+                print("✅ [PREMIUM SUCCESS] ElevenLabs Rex voice delivered perfectly: '\(text)'")
             } else {
-                print("⚠️ [ElevenLabs] Failed to play speech, falling back to Apple TTS")
-                // Fallback to Apple TTS if ElevenLabs fails
-                self.fallbackToAppleTTS(text, style: targetStyle)
+                // ElevenLabs failed after ALL its internal retries - this is serious
+                print("💔 [PREMIUM FAILED] ElevenLabs exhausted ALL attempts - network/API critical failure")
+                print("🔄 [LAST RESORT] Attempting final ElevenLabs recovery before fallback...")
+                
+                // Give ElevenLabs one final chance with longer delay for network recovery
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { [weak self] finalSuccess in
+                        if finalSuccess {
+                            print("🎉 [MIRACLE RECOVERY] ElevenLabs final attempt successful - Rex voice saved!")
+                        } else {
+                            // ONLY NOW fallback to Apple TTS - ElevenLabs truly unavailable
+                            print("😞 [EMERGENCY FALLBACK] ElevenLabs completely unavailable - switching to backup voice")
+                            self?.fallbackToAppleTTSWithMessage(text, style: targetStyle)
+                        }
+                    }
+                }
             }
         }
     }
     
     // MARK: - Fallback to Apple TTS
+    
+    /// Enhanced fallback with seamless transition messaging
+    private func fallbackToAppleTTSWithMessage(_ text: String, style: CoachingStyle) {
+        print("🔄 [EMERGENCY TRANSITION] Preparing seamless switch to backup voice system...")
+        
+        // First, provide seamless transition with a brief message if it's a long text
+        let isLongMessage = text.count > 50
+        if isLongMessage {
+            // For longer messages, give a brief transition
+            let transitionMessage = "One moment..."
+            fallbackToAppleTTS(transitionMessage, style: style)
+            
+            // Then deliver the actual message after a brief pause
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.fallbackToAppleTTS(text, style: style)
+            }
+        } else {
+            // For short messages, just deliver directly
+            fallbackToAppleTTS(text, style: style)
+        }
+    }
+    
     private func fallbackToAppleTTS(_ text: String, style: CoachingStyle) {
         let voiceChar = premiumVoices[style] ?? currentPersonality.voiceCharacteristics
         
@@ -217,9 +206,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         
         // Configure audio session
         do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .voicePrompt, options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            try AudioSessionManager.shared.configureForPlayback()
         } catch {
             print("[Fallback TTS] ❌ Audio session error: \(error.localizedDescription)")
         }
@@ -227,15 +214,53 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         // Create utterance with Apple TTS
         let utterance = AVSpeechUtterance(string: text)
         utterance.rate = voiceChar.rate
-        utterance.volume = voiceChar.volume
+        utterance.volume = 1.0  // Force maximum volume for better audibility
         utterance.pitchMultiplier = voiceChar.pitch
         utterance.preUtteranceDelay = 0.1
         utterance.postUtteranceDelay = 0.2
         
+        // Try preferred voice first
         if let voice = AVSpeechSynthesisVoice(identifier: voiceChar.voiceIdentifier) {
             utterance.voice = voice
+            print("[Fallback TTS] 🎤 Using preferred Rex-like voice: \(voice.name)")
         } else {
-            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+            // Fallback to best available female voice to match Rex
+            let preferredFemaleVoices = [
+                "com.apple.ttsbundle.Samantha-compact",      // Samantha (warm, friendly)
+                "com.apple.voice.compact.en-US.Zoe",         // Zoe (clear, professional)
+                "com.apple.ttsbundle.siri_female_en-US_compact", // Siri Female
+                "com.apple.voice.compact.en-US.Allison",     // Allison (natural)
+                "com.apple.ttsbundle.Ava-compact"            // Ava (expressive)
+            ]
+            
+            var fallbackVoice: AVSpeechSynthesisVoice? = nil
+            for identifier in preferredFemaleVoices {
+                if let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+                    fallbackVoice = voice
+                    print("[Fallback TTS] 🎤 Using fallback Rex-like voice: \(voice.name)")
+                    break
+                }
+            }
+            
+            // Final fallback to any female voice available
+            if fallbackVoice == nil {
+                let allVoices = AVSpeechSynthesisVoice.speechVoices()
+                fallbackVoice = allVoices.first { voice in
+                    voice.language.contains("en") && 
+                    (voice.name.lowercased().contains("female") || 
+                     voice.name.lowercased().contains("woman") ||
+                     voice.identifier.lowercased().contains("female"))
+                }
+                
+                if let voice = fallbackVoice {
+                    print("[Fallback TTS] 🎤 Using generic female voice: \(voice.name)")
+                }
+            }
+            
+            utterance.voice = fallbackVoice ?? AVSpeechSynthesisVoice(language: "en-US")
+            if fallbackVoice == nil {
+                print("[Fallback TTS] ⚠️ Using default voice - couldn't find female voice to match Rex")
+            }
         }
         
         synthesizer.delegate = self
@@ -243,87 +268,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         print("[Fallback TTS] Using Apple TTS for: '\(text)'")
     }
     
-    // MARK: - Legacy Speech Method (Compatibility)
-    private func speakImmediately(_ text: String) {
-        // Redirect to premium speech system for consistency
-        speakWithPersonality(text, style: .supportive)
-    }
+
     
-    // MARK: - Premium Coaching Phrases Setup
-    private func setupCoachingPhrases() {
-        coachingPhrases = [
-            "motivational": [
-                "Yesss! That's exactly what I want to see!",
-                "Holy moly, you're absolutely crushing this!",
-                "Beast mode activated! Let's keep this energy going!",
-                "Now THAT'S what I call proper effort!",
-                "You're making this look way too easy!",
-                "Fire! Absolute fire! Keep that intensity!",
-                "This is how champions are made, right here!",
-                "You just leveled up! I can see the difference!"
-            ],
-            "technical": [
-                "Think about driving through your heels here",
-                "Keep that chest up and core tight",
-                "Really focus on that hip hinge pattern",
-                "Control the way down, power on the way up",
-                "Your knees should track right over your toes",
-                "Take a deep breath and brace that core",
-                "Feel that stretch in your glutes at the bottom",
-                "Mind-muscle connection is everything here"
-            ],
-            "supportive": [
-                "Really nice form, you're getting the hang of this",
-                "Great depth on that one, well done",
-                "That's your best rep yet, I can tell",
-                "You're making solid progress, keep it up",
-                "Perfect technique right there",
-                "You're building real functional strength",
-                "That's exactly how it should feel",
-                "You're definitely getting stronger each session"
-            ],
-            "professional": [
-                "Maintain neutral spine position",
-                "Execute the movement with proper form",
-                "Focus on controlled eccentric phase",
-                "Maintain proper breathing pattern",
-                "Ensure full range of motion",
-                "Keep your core engaged throughout",
-                "Maintain proper joint alignment",
-                "Execute with precision and control"
-            ]
-        ]
-    }
-    
-    // MARK: - Context-Aware Response Generation
-    private func generateContextualResponse(context: CoachingContext, formAnalysis: [String: Any]? = nil) -> String {
-        switch context {
-        case .exerciseSetup:
-            return getRandomPhrase(for: .supportive) + " Ready to crush this workout?"
-        case .activeForm:
-            if let analysis = formAnalysis {
-                return generateFormFeedback(analysis: analysis)
-            }
-            return getRandomPhrase(for: .motivational)
-        case .restPeriod:
-            return getRandomPhrase(for: .supportive) + " Take a breath, you're doing great."
-        case .sessionComplete:
-            return "Incredible work today! You're building something special."
-        case .generalChat:
-            return getRandomPhrase(for: .supportive)
-        }
-    }
-    
-    private func getRandomPhrase(for style: CoachingStyle) -> String {
-        let styleKey = String(describing: style)
-        let phrases = coachingPhrases[styleKey] ?? ["Great work!"]
-        return phrases.randomElement() ?? "Keep it up!"
-    }
-    
-    private func generateFormFeedback(analysis: [String: Any]) -> String {
-        // This will be enhanced with actual form analysis
-        return getRandomPhrase(for: .technical)
-    }
+
     
     // MARK: - Enhanced OpenAI Integration
     private func processWithOpenAI(_ userInput: String) {
@@ -411,17 +358,23 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         // Check time of day for personalized greeting
         let hour = Calendar.current.component(.hour, from: Date())
         if hour < 12 {
-            return "Good morning! Ready to start your day with some fitness?"
+            return "Good morning! I'm here to help with whatever fitness or health questions you have. What's on your mind?"
         } else if hour < 17 {
-            return "Good afternoon! What's your fitness focus today?"
+            return "Good afternoon! Whether it's workout advice, nutrition tips, or health questions, I'm here to help. What do you need?"
         } else {
-            return "Evening workout time! Let's get after it!"
+            return "Good evening! Ready to tackle any fitness or health questions you have. What can I help you with?"
         }
     }
     
     // MARK: - Wake Word
     func startWakeWordDetection() {
-        guard let keywordPath = Bundle.main.path(forResource: "Hey-Rex_en_ios_v3_0_0/Hey-Rex_en_ios_v3_0_0", ofType: "ppn") else {
+        // Prevent multiple wake word detection sessions
+        if porcupineManager != nil && isWakeWordActive {
+            print("[Wake Word] ⚠️ Wake word detection already active, skipping...")
+            return
+        }
+        
+        guard let keywordPath = Bundle.main.path(forResource: "Hey-Rex_en_ios_v3_0_0", ofType: "ppn") else {
             print("[Wake Word] ❌ Hey Rex wake word model not found")
             return
         }
@@ -432,33 +385,42 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 accessKey: "93LqowKUjtFKhB/AUeeGI529BXWBKCA5tgs8E3pGEsB92reoD6lO2A==",
                 keywordPath: keywordPath,
                 onDetection: { [weak self] _ in
+                    // Prevent duplicate wake word processing
+                    guard let self = self, !self.isProcessingWakeWord else {
+                        print("[Wake Word] ⚠️ Wake word already being processed, ignoring...")
+                        return
+                    }
+                    
+                    self.isProcessingWakeWord = true
                     print("[Wake Word] 🎯 Hey Rex detected!")
+                    
                     DispatchQueue.main.async {
                         print("[Wake Word] Processing wake word detection...")
-                        // Wait 3 seconds after "Hey Rex" before responding
-                        if self?.isInConversation == false {
-                            print("[Wake Word] Starting new conversation with 3-second delay...")
-                            self?.feedbackMessage = "Hey Rex heard... (waiting 3 seconds)"
-                            self?.isListening = true
+                        // Wait 2 seconds after "Hey Rex" before responding
+                        if self.isInConversation == false {
+                            print("[Wake Word] Starting new conversation with 2-second delay...")
+                            self.feedbackMessage = "Hey Rex heard... (waiting 2 seconds)"
+                            self.isListening = true
                             
-                            // Wait 3 seconds before responding (in case user is still speaking)
-                            DispatchQueue.main.asyncAfter(deadline: .now() + (self?.postWakeWordDelay ?? 3.0)) {
-                                print("[Wake Word] 3-second delay complete, now responding...")
+                            // Wait 2 seconds before responding (in case user is still speaking)
+                            DispatchQueue.main.asyncAfter(deadline: .now() + (self.postWakeWordDelay)) {
+                                print("[Wake Word] 2-second delay complete, now responding...")
                                 
                                 // Choose greeting based on context
-                                let greeting = self?.getContextualGreeting() ?? "I'm here to coach you. What's your focus today?"
-                                self?.speakWithPersonality(greeting, style: .supportive)
-                                self?.feedbackMessage = "Coach is listening..."
+                                let greeting = self.getContextualGreeting()
+                                self.speakWithPersonality(greeting, style: .supportive)
+                                self.feedbackMessage = "Coach is listening..."
                                 
-                                // Start listening after speech completes
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                    print("[Wake Word] Starting speech recognition...")
-                            self?.startConversation()
-                                }
+                                // Mark that we're in a conversation - listening will start automatically after speech
+                                self.isInConversation = true
+                                
+                                // Reset wake word processing flag
+                                self.isProcessingWakeWord = false
                             }
                         } else {
                             print("[Wake Word] Already in conversation, resetting timeout...")
-                            self?.resetConversationTimeout()
+                            self.resetConversationTimeout()
+                            self.isProcessingWakeWord = false
                         }
                     }
                 }
@@ -501,9 +463,42 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     
     private func endConversation() {
         isInConversation = false
+        isInCheckInPhase = false
         stopSpeechRecognition()
         conversationTimeoutTimer?.invalidate()
         conversationTimeoutTimer = nil
+        
+        // Deactivate audio session to clean up
+        AudioSessionManager.shared.deactivate()
+    }
+    
+    private func checkInWithUser() {
+        print("[Conversation] Checking in with user...")
+        
+        // Stop current listening
+        stopSpeechRecognition()
+        
+        // Mark that we're in check-in phase
+        isInCheckInPhase = true
+        
+        // Ask if there's anything else
+        let checkInMessage = "Is there anything else I can help you with?"
+        self.feedbackMessage = "Checking in..."
+        
+        // Speak the check-in message
+        speakWithPersonality(checkInMessage, style: .supportive)
+        
+        // After speaking, wait longer before starting final listening window
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.feedbackMessage = "Listening for final response..."
+            self.startSpeechRecognition()
+            
+            // Set timer to end conversation after 4 seconds (more generous)
+            self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
+                print("[Conversation] Final 4-second window expired, ending conversation")
+                self.endConversation()
+            }
+        }
     }
     
     // MARK: - Speech Recognition
@@ -531,32 +526,65 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         
         // Prevent multiple simultaneous recognition sessions
         if isProcessingSpeech {
+            print("[Speech] Already processing speech, skipping...")
             return
         }
         
+        print("[Speech] Starting speech recognition...")
         stopSpeechRecognition()
         
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            
-            // First, deactivate the current session
-            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-            
-            // Configure for both recording and playback
-            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP])
-            
-            // Activate the session
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            
-            print("[Speech] Audio session configured successfully for speech recognition")
-        } catch {
-            feedbackMessage = "Failed to set up audio session"
-            print("[Speech] Audio session setup failed: \(error)")
-            isProcessingSpeech = false
-            stopSpeechRecognition()
+        // Add longer delay to ensure audio session is ready after ElevenLabs playback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            do {
+                // Use centralized audio session manager with retry
+                try AudioSessionManager.shared.configureForRecording()
+                
+                print("[Speech] Audio session configured successfully for speech recognition")
+                
+                // Continue with speech recognition setup
+                self.setupSpeechRecognitionImplementation()
+                
+            } catch {
+                print("[Speech] Audio session setup failed: \(error), attempting recovery...")
+                
+                // Try to recover audio session with multiple attempts
+                self.attemptAudioSessionRecovery(attempt: 1)
+            }
+        }
+    }
+    
+    private func attemptAudioSessionRecovery(attempt: Int) {
+        let maxAttempts = 3
+        
+        guard attempt <= maxAttempts else {
+            print("[Speech] Audio session recovery exhausted all attempts")
+            self.feedbackMessage = "Failed to set up audio session after multiple attempts"
+            self.isProcessingSpeech = false
+            self.stopSpeechRecognition()
             return
         }
         
+        print("[Speech] Audio session recovery attempt \(attempt)/\(maxAttempts)")
+        
+        // Force reset audio session
+        AudioSessionManager.shared.forceReset()
+        
+        // Wait progressively longer between attempts
+        let delay = TimeInterval(attempt) * 0.5
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            do {
+                try AudioSessionManager.shared.configureForRecording()
+                print("[Speech] Audio session recovery successful on attempt \(attempt)")
+                self.setupSpeechRecognitionImplementation()
+            } catch {
+                print("[Speech] Audio session recovery failed on attempt \(attempt): \(error)")
+                self.attemptAudioSessionRecovery(attempt: attempt + 1)
+            }
+        }
+    }
+        
+    private func setupSpeechRecognitionImplementation() {
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = recognitionRequest else {
             feedbackMessage = "Unable to create recognition request"
@@ -574,7 +602,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         var lastTranscription = ""
         var hasReceivedPartialResult = false
         
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self = self else { return }
             
             if let error = error {
@@ -617,10 +645,20 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                         
                         if !text.isEmpty {
                             self.feedbackMessage = "Processing..."
+                            // If we're in check-in phase and user responds, continue conversation
+                            if self.isInCheckInPhase {
+                                self.isInCheckInPhase = false
+                                print("[Conversation] User responded during check-in, continuing conversation...")
+                            }
                             self.processWithOpenAI(text)
                         } else if hasReceivedPartialResult {
                             // Use partial result if final is empty
                             self.feedbackMessage = "Processing..."
+                            // If we're in check-in phase and user responds, continue conversation
+                            if self.isInCheckInPhase {
+                                self.isInCheckInPhase = false
+                                print("[Conversation] User responded during check-in, continuing conversation...")
+                            }
                             self.processWithOpenAI(lastTranscription)
                         } else {
                             self.feedbackMessage = "Didn't catch that. Try again."
@@ -648,51 +686,267 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             }
         }
         
+        // Set up audio engine for recording with better error handling
         let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.removeTap(onBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
-            self?.recognitionRequest?.append(buffer)
+        
+        // Get the actual hardware format from the input node
+        let hardwareFormat = inputNode.outputFormat(forBus: 0)
+        print("[Speech] Hardware format - Sample Rate: \(hardwareFormat.sampleRate), Channels: \(hardwareFormat.channelCount), Format: \(hardwareFormat)")
+        
+        // For iOS Simulator or invalid hardware, we need to use a completely different approach
+        var recordingFormat: AVAudioFormat
+        
+        if hardwareFormat.sampleRate > 0 && hardwareFormat.channelCount > 0 {
+            // Real device with valid hardware format
+            recordingFormat = hardwareFormat
+            print("[Speech] ✅ Using hardware format: \(recordingFormat)")
+        } else {
+            // iOS Simulator or invalid hardware - use a format that actually works
+            print("[Speech] 🎭 iOS Simulator detected - using compatible format")
+            
+            // Try multiple formats that work with the simulator
+            let compatibleFormats = [
+                AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1),
+                AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1),
+                AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)
+            ]
+            
+            var foundFormat: AVAudioFormat? = nil
+            for format in compatibleFormats {
+                if let fmt = format {
+                    foundFormat = fmt
+                    print("[Speech] ✅ Using compatible format: \(fmt)")
+                    break
+                }
+            }
+            
+            guard let safeFormat = foundFormat else {
+                print("[Speech] ❌ Could not create any compatible audio format")
+                feedbackMessage = "Audio system not ready"
+                isProcessingSpeech = false
+                stopSpeechRecognition()
+                return
+            }
+            
+            recordingFormat = safeFormat
         }
         
+        // Ensure the audio engine is in a clean state
+        if audioEngine.isRunning {
+            audioEngine.stop()
+        }
+        audioEngine.reset()
+        
+        // Wait for audio engine to be ready
+        Thread.sleep(forTimeInterval: 0.2)
+        
+        // Remove any existing taps
+        inputNode.removeTap(onBus: 0)
+        
+        // Create a proper format for speech recognition (16kHz mono)
+        let speechFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)
+        guard let validSpeechFormat = speechFormat else {
+            print("[Speech] ❌ Could not create valid speech format")
+            feedbackMessage = "Audio format creation failed"
+            isProcessingSpeech = false
+            stopSpeechRecognition()
+            return
+        }
+        
+                    // Install tap with simplified format handling
+            inputNode.installTap(onBus: 0, bufferSize: 4096, format: recordingFormat) { [weak self] buffer, _ in
+                guard let self = self, let recognitionRequest = self.recognitionRequest else { return }
+                
+                // For iOS Simulator, we need to handle the case where the buffer might be empty or invalid
+                if buffer.frameLength == 0 {
+                    print("[Speech] ⚠️ Empty buffer received, skipping")
+                    return
+                }
+                
+                // Try to convert to speech format, but fallback gracefully
+                if recordingFormat.sampleRate != 16000 || recordingFormat.channelCount != 1 {
+                    // Create converter
+                    guard let converter = AVAudioConverter(from: recordingFormat, to: validSpeechFormat) else {
+                        print("[Speech] ⚠️ Converter creation failed, using original buffer")
+                        recognitionRequest.append(buffer)
+                        return
+                    }
+                    
+                    // Calculate frame capacity
+                    let ratio = validSpeechFormat.sampleRate / recordingFormat.sampleRate
+                    let convertedFrameCapacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
+                    
+                    // Create converted buffer
+                    guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: validSpeechFormat, frameCapacity: convertedFrameCapacity) else {
+                        print("[Speech] ⚠️ Converted buffer creation failed, using original buffer")
+                        recognitionRequest.append(buffer)
+                        return
+                    }
+                    
+                    // Convert with proper error handling
+                    var error: NSError?
+                    let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                        outStatus.pointee = .haveData
+                        return buffer
+                    }
+                    
+                    converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+                    
+                    if error == nil {
+                        recognitionRequest.append(convertedBuffer)
+                        print("[Speech] ✅ Buffer converted successfully")
+                    } else {
+                        print("[Speech] ⚠️ Conversion failed: \(error?.localizedDescription ?? "unknown"), using original buffer")
+                        recognitionRequest.append(buffer)
+                    }
+                } else {
+                    // Format matches, use directly
+                    recognitionRequest.append(buffer)
+                    print("[Speech] ✅ Buffer appended directly (format matches)")
+                }
+            }
+        
         do {
+            // Prepare and start the audio engine
             audioEngine.prepare()
+            
             try audioEngine.start()
+            
+            // Verify audio engine is running
+            guard audioEngine.isRunning else {
+                print("[Speech] ❌ Audio engine failed to start")
+                feedbackMessage = "Audio system not ready"
+                isProcessingSpeech = false
+                stopSpeechRecognition()
+                return
+            }
+            
             DispatchQueue.main.async {
                 self.isListening = true
                 self.isProcessingSpeech = true
                 self.feedbackMessage = "Listening..."
-                print("[Speech] Speech recognition started, audio engine running.")
+                print("[Speech] ✅ Speech recognition started successfully, audio engine running.")
             }
+                
         } catch {
+            print("[Speech] ❌ Failed to start audio engine: \(error)")
+            
+            // Try alternative approach for iOS Simulator
+            if recordingFormat.sampleRate == 44100 || recordingFormat.sampleRate == 48000 || recordingFormat.sampleRate == 16000 {
+                print("[Speech] 🔄 Attempting alternative audio setup for simulator...")
+                
+                // Reset and try with a different approach
+                audioEngine.reset()
+                
+                // Try to use a simpler format
+                if let simpleFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1) {
+                    print("[Speech] 🔄 Retrying with simple format: \(simpleFormat)")
+                    
+                    // Remove existing tap and try again
+                    inputNode.removeTap(onBus: 0)
+                    
+                    // Install tap with simple format
+                    inputNode.installTap(onBus: 0, bufferSize: 1024, format: simpleFormat) { [weak self] buffer, _ in
+                        guard let self = self, let recognitionRequest = self.recognitionRequest else { return }
+                        recognitionRequest.append(buffer)
+                    }
+                    
+                    do {
+                        audioEngine.prepare()
+                        try audioEngine.start()
+                        
+                        if audioEngine.isRunning {
+                            DispatchQueue.main.async {
+                                self.isListening = true
+                                self.isProcessingSpeech = true
+                                self.feedbackMessage = "Listening (simulator mode)..."
+                                print("[Speech] ✅ Alternative setup successful for simulator")
+                            }
+                            return
+                        }
+                    } catch {
+                        print("[Speech] ❌ Alternative setup also failed: \(error)")
+                    }
+                }
+            }
+            
+            // If all else fails
             feedbackMessage = "Failed to start audio engine"
-            print("[Speech] Failed to start audio engine: \(error)")
             isProcessingSpeech = false
             stopSpeechRecognition()
         }
     }
     
     private func stopSpeechRecognition() {
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        recognitionTask?.cancel()
-        recognitionTask = nil
+        print("[Speech] Stopping speech recognition...")
+        
+        // Stop timers first
         speechTimeoutTimer?.invalidate()
         speechTimeoutTimer = nil
         
-        // Don't deactivate the audio session here - let the playback methods handle it
+        // Cancel recognition task
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        
+        // End recognition request
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        
+        // Safely stop audio engine
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            print("[Speech] Audio engine stopped")
+        }
+        
+        // Remove tap safely
+        audioEngine.inputNode.removeTap(onBus: 0)
+        print("[Speech] Input node tap removed")
+        
+        // Reset audio engine to clean state
+        audioEngine.reset()
+        
+        // Update UI state
         DispatchQueue.main.async {
             self.isListening = false
             self.isProcessingSpeech = false
         }
+        
+        print("[Speech] ✅ Speech recognition stopped successfully")
     }
     
     // MARK: - Removed Duplicate Methods
-    // All speech and OpenAI handling now goes through the premium system above
+// All speech and OpenAI handling now goes through the premium system above
     
 
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let elevenLabsSpeechFinished = Notification.Name("elevenLabsSpeechFinished")
+}
+
+// MARK: - Notification Handlers
+
+extension VoiceAssistantManager {
+    @objc private func handleElevenLabsSpeechFinished() {
+        print("[Conversation] ElevenLabs speech finished, starting conversation flow...")
+        
+        // Start the conversation flow just like Apple TTS does
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.aiResponse = nil
+            if self.isInConversation {
+                self.feedbackMessage = "Listening for 2 seconds..."
+                self.startSpeechRecognition()
+                
+                // Set timer to check in after 2 seconds of silence
+                self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
+                    print("[Conversation] 2-second listening window expired, checking in with user...")
+                    self.checkInWithUser()
+                }
+            }
+        }
+    }
 }
 
 // Add AVSpeechSynthesizerDelegate to auto-resume listening after speaking
@@ -703,20 +957,19 @@ extension VoiceAssistantManager: AVSpeechSynthesizerDelegate {
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         print("[Audio] Finished speaking: \(utterance.speechString)")
-        print("[Conversation] Starting 3-second listening window for follow-up...")
+        print("[Conversation] Starting 2-second listening window for follow-up...")
         
         // After speaking, start listening immediately for follow-up
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { // Reduced delay for faster response
             self.aiResponse = nil
             if self.isInConversation {
-                self.feedbackMessage = "Listening for 3 seconds..."
+                self.feedbackMessage = "Listening for 2 seconds..."
                 self.startSpeechRecognition()
                 
-                // Set timer to end conversation after 3 seconds of silence
-                self.resetConversationTimeout()
+                // Set timer to check in after 2 seconds of silence
                 self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
-                    print("[Conversation] 3-second listening window expired, ending conversation")
-                    self.endConversation()
+                    print("[Conversation] 2-second listening window expired, checking in with user...")
+                    self.checkInWithUser()
                 }
             }
         }
