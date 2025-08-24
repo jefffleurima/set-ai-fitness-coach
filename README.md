@@ -21,11 +21,12 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 ### 🎤 **Rex Voice AI System**
 - 🎙️ **"Hey Rex" wake word detection** - Custom trained model for gym environments
 - 🗣️ **Human-like voice responses** - ElevenLabs AI voices, not robotic Apple TTS
-- 💬 **Continuous conversation flow** - 3-second listening after responses
+- 💬 **Continuous conversation flow** - 4-second listening after responses with check-in prompts
 - 🧠 **Comprehensive knowledge** - Fitness, nutrition, supplements, health guidance
 - ⚡ **Ultra-responsive** - 2-second max response time with smart delays
 - 🎯 **Contextual coaching** - Knows your workout and provides targeted advice
-- 🚨 **Professional speech priority system** - Safety alerts, form corrections, timing, encouragement
+- 🔧 **iOS Simulator compatible** - Works perfectly on both real devices and simulator
+- 🎵 **Robust audio handling** - Smart format detection and fallback systems
 - ♿ **VoiceOver compatibility** - Built-in accessibility support
 
 ### 📊 **Activity Tracking**
@@ -78,9 +79,9 @@ Built with modern iOS development practices and premium voice AI:
 - **Picovoice Porcupine** - Custom "Hey Rex" wake word model
 - **ElevenLabs AI Voices** - Human-like speech synthesis with coaching personalities
 - **iOS Speech Framework** - Advanced speech recognition with noise filtering
-- **AVFoundation** - Professional audio session management
+- **AudioSessionManager** - Centralized audio session coordination and conflict resolution
+- **AVFoundation** - Professional audio format conversion and playback management
 - **OpenAI GPT-4** - Intelligent conversational AI with fitness expertise
-- **Professional Speech Priority System** - Enterprise-grade queue management with 4 priority levels
 - **VoiceOver Integration** - Seamless accessibility support for all users
 
 ### **📱 Core Technologies:**
@@ -91,6 +92,21 @@ Built with modern iOS development practices and premium voice AI:
 - **Core ML** - On-device machine learning capabilities
 
 
+## 🆕 **Latest Voice System Improvements**
+
+### **🔧 iOS Simulator Compatibility (v2.1)**
+- **Smart Format Detection** - Automatically detects iOS Simulator vs real device
+- **Multiple Fallback Formats** - Tries 44.1kHz, 48kHz, 16kHz for optimal compatibility
+- **Robust Audio Conversion** - Handles format mismatches gracefully with AVAudioConverter
+- **Alternative Setup Methods** - If main setup fails, automatically tries simpler approaches
+- **Audio Session Coordination** - Centralized management prevents conflicts between components
+
+### **💬 Enhanced Conversation Flow**
+- **4-Second Listening Window** - Extended from 2 seconds for more natural conversation
+- **Check-in Prompts** - AI asks "Is there anything else I can help with?" before ending
+- **Smooth Transitions** - Seamless handoff between ElevenLabs and Apple TTS fallback
+- **Error Recovery** - Multiple retry attempts with exponential backoff for reliability
+
 ## 🧪 Testing
 
 Designed and tested for real-world gym environments:
@@ -100,7 +116,8 @@ Designed and tested for real-world gym environments:
 - **Natural conversation** - Tested for human-like interaction patterns
 - **Response speed** - Validated 2-second max response times
 - **Knowledge accuracy** - Verified fitness, nutrition, and health expertise
-- **Speech priority system** - Validated interruption handling and queue management
+- **iOS Simulator compatibility** - Fully tested and optimized for development
+- **Audio format handling** - Robust fallback systems for various audio configurations
 - **Accessibility testing** - VoiceOver compatibility verified across scenarios
 
 ### **🏋️ Gym Environment:**
@@ -164,8 +181,9 @@ cp Set/Info.template.plist Set/Info.plist
 **⚠️ Your API keys are automatically protected by `.gitignore`**
 
 ### **🎤 Voice Quality Comparison:**
-- **Apple TTS (Fallback)**: Robotic, limited personality, basic quality
-- **ElevenLabs (Primary)**: Human-like, emotional inflection, coaching personalities
+- **Apple TTS (Fallback)**: Robotic, limited personality, basic quality - only used when ElevenLabs fails
+- **ElevenLabs (Primary)**: Human-like, emotional inflection, coaching personalities - your custom "Rex" voice
+- **Audio Format Handling**: Smart conversion and fallback for optimal compatibility across all devices
 
 ## 📞 Contact
 
