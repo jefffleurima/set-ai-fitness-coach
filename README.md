@@ -182,7 +182,7 @@ cp Set/Info.template.plist Set/Info.plist
 
 ### **🎤 Voice Quality Comparison:**
 - **Apple TTS (Fallback)**: Robotic, limited personality, basic quality - only used when ElevenLabs fails
-- **ElevenLabs (Primary)**: Human-like, emotional inflection, coaching personalities - your custom "Rex" voice
+- **ElevenLabs (Primary)**: Human-like, emotional inflection, coaching personalities - custom "Rex" voice
 - **Audio Format Handling**: Smart conversion and fallback for optimal compatibility across all devices
 
 ## 📞 Contact
