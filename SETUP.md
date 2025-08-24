@@ -8,6 +8,7 @@ Welcome to **Set**, an AI-powered fitness coaching app that combines AR form ana
 - Xcode 15.0 or later
 - iOS 17.0+ device or simulator
 - OpenAI API key (for AI coaching features)
+- ElevenLabs API key (recommended for premium voice quality)
 
 ### 1. Clone & Setup
 ```bash
@@ -17,16 +18,21 @@ cd Set
 
 ### 2. Configure API Keys
 ```bash
-# Copy the config template
-cp Set/Config.template.swift Set/Config.swift
+# Copy the info template
+cp Set/Info.template.plist Set/Info.plist
 ```
 
-Then edit `Set/Config.swift` and add your OpenAI API key:
-```swift
-static let apiKey = "your-actual-openai-api-key-here"
+Then edit `Set/Info.plist` and add your API keys:
+```xml
+<key>OPENAI_API_KEY</key>
+<string>your-actual-openai-api-key-here</string>
+<key>ELEVENLABS_API_KEY</key>
+<string>your-actual-elevenlabs-api-key-here</string>
 ```
 
-**Get your OpenAI API key**: https://platform.openai.com/api-keys
+**Get your API keys**:
+- **OpenAI**: https://platform.openai.com/api-keys
+- **ElevenLabs**: https://elevenlabs.io/ (Free tier available)
 
 ### 3. Install Dependencies
 ```bash
@@ -45,28 +51,47 @@ static let apiKey = "your-actual-openai-api-key-here"
 Set/
 ├── AR/                 # ARKit body tracking & form analysis
 ├── Voice/              # Voice assistant & Picovoice integration
+│   ├── AudioSessionManager.swift    # Centralized audio session management
+│   ├── ElevenLabsVoiceManager.swift # ElevenLabs AI voice integration
+│   └── VoiceAssistantManager.swift # Core voice assistant logic
 ├── Views/              # SwiftUI views & UI components
 ├── Models/             # Data models & OpenAI client
 ├── Theme/              # App theming & design system
-├── Config.swift        # API keys (not in git)
-└── Config.template.swift # Template for contributors
+├── Info.plist          # API keys (not in git)
+└── Info.template.plist # Template for contributors
 ```
+
+## 🎤 Voice System Setup
+
+### **Required Components:**
+- **Picovoice Porcupine**: Custom "Hey Rex" wake word model (included)
+- **ElevenLabs API**: For human-like voice synthesis (recommended)
+- **OpenAI API**: For intelligent coaching conversations (required)
+
+### **Voice System Features:**
+- **Wake Word**: "Hey Rex" - custom trained for gym environments
+- **Voice Quality**: ElevenLabs AI voices with Apple TTS fallback
+- **Conversation Flow**: 4-second listening window with check-in prompts
+- **iOS Simulator**: Fully compatible with smart format detection
+- **Audio Management**: Centralized session coordination and conflict resolution
 
 ## 🔑 Features
 
 - **AR Form Analysis**: Real-time exercise form correction using ARKit
-- **Voice Assistant**: "Hey Rex" wake word detection and voice commands
-- **AI Coaching**: Personalized workout advice powered by OpenAI
+- **Voice Assistant**: "Hey Rex" wake word detection with ElevenLabs AI voices
+- **AI Coaching**: Personalized workout advice powered by OpenAI GPT-4
 - **Activity Tracking**: Apple Fitness-style activity rings with HealthKit
 - **Exercise Library**: Comprehensive workout database with instructions
+- **iOS Simulator Compatible**: Full voice system testing on simulator and device
 
 ## 🛡️ Security & Legal Notes
 
 ### **API Security**
-- `Config.swift` is gitignored and contains sensitive API keys
+- `Info.plist` is gitignored and contains sensitive API keys
 - Never commit API keys to version control
 - Use the template file for new contributors
 - Rotate API keys regularly
+- Both OpenAI and ElevenLabs keys are required for full functionality
 
 ### **⚖️ IMPORTANT: Proprietary License**
 - This is **NOT open source** - it's proprietary software
@@ -79,9 +104,11 @@ Set/
 ## 📱 Testing
 
 The app is designed for gym prototype testing:
-- Test on physical devices for best AR performance
-- Camera permissions required for AR features
-- Microphone permissions needed for voice assistant
+- **Voice System**: Fully tested on both iOS Simulator and physical devices
+- **AR Features**: Test on physical devices for best AR performance
+- **Camera permissions** required for AR features
+- **Microphone permissions** needed for voice assistant
+- **Audio Session Management**: Robust handling of audio conflicts and format issues
 - **Testing is for development of THIS project only**
 
 ## 🤝 Contributing Guidelines
@@ -101,7 +128,8 @@ The app is designed for gym prototype testing:
 ### **What We're Looking For**
 - UI/UX improvements for the fitness tracking screens
 - AR form analysis enhancements
-- Voice assistant feature improvements
+- Voice assistant feature improvements and ElevenLabs integration
+- Audio session management and iOS Simulator compatibility
 - Performance optimizations for gym environments
 - Bug fixes and stability improvements
 
