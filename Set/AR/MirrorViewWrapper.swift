@@ -11,7 +11,7 @@ struct MirrorViewWrapper: UIViewControllerRepresentable {
         
         // Set the exercise and dismiss closure
         DispatchQueue.main.async {
-            viewController.setExercise(self.exercise)
+            viewController.setExercise(self.exercise.name)
             viewController.dismissClosure = {
                 self.dismiss()
             }

@@ -1,8 +1,8 @@
 import UIKit
-import AVFoundation
-import Vision
 import ARKit
 import RealityKit
+import SwiftUI
+import Vision
 
 class MirrorViewController: UIViewController {
     private var arView: ARView?
@@ -11,24 +11,23 @@ class MirrorViewController: UIViewController {
     // Vision framework for pose detection
     private var poseRequest: VNDetectHumanBodyPose3DRequest?
     
-    // Form analysis
-    private var formAnalyzer = FormAnalyzer()
-    private var currentExercise: Exercise?
-    private var repCount = 0
-    private var lastRepTime: Date?
-    private var repHistory: [Float] = []
+    // Form analyzer
+    private var formAnalyzer: FormAnalyzer?
     
-    // UI Elements
-    private var exerciseNameLabel: UILabel?
-    private var scoreLabel: UILabel?
-    private var repLabel: UILabel?
-    private var feedbackLabel: UILabel?
+    // UI overlays
+    private var voiceAssistantOverlay: UIHostingController<VoiceAssistantOverlay>?
+    private var exerciseInfoLabel: UILabel?
+    private var formFeedbackLabel: UILabel?
     
-    // SwiftUI dismiss closure
-    var dismissClosure: (() -> Void)?
+    // Gesture recognizers
+    private var swipeDownGesture: UISwipeGestureRecognizer?
     
-    // Initialization state
+    // State tracking
     private var isARKitSetup = false
+    private var currentExercise: String = "squats"
+    
+    // Dismiss closure for SwiftUI integration
+    var dismissClosure: (() -> Void)?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -95,228 +94,171 @@ class MirrorViewController: UIViewController {
         
         print("✅ MirrorViewController: Body tracking is supported")
         
-        // Configure ARKit for body tracking (uses back camera by default)
+        // Configure AR session
         let configuration = ARBodyTrackingConfiguration()
-        configuration.automaticImageScaleEstimationEnabled = true
-        configuration.isAutoFocusEnabled = true
+        configuration.planeDetection = [.horizontal, .vertical]
+        configuration.isLightEstimationEnabled = true
         
-        print("🔧 MirrorViewController: Starting ARKit session")
-        arView.session.run(configuration)
+        // Set the session delegate
         arView.session.delegate = self
-        arView.renderOptions = [.disablePersonOcclusion, .disableMotionBlur]
         
+        // Start the AR session
+        print("🔧 MirrorViewController: Starting ARKit session")
+        arView.session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
         print("✅ MirrorViewController: ARKit session started")
     }
     
     private func setupVision() {
-        // Configure Vision framework for 3D pose detection
         poseRequest = VNDetectHumanBodyPose3DRequest { [weak self] request, error in
-            guard let self = self,
-                  let observations = request.results as? [VNHumanBodyPose3DObservation],
-                  let observation = observations.first else { return }
-            
-            DispatchQueue.main.async {
-                self.processVisionPoseObservation(observation)
+            if let error = error {
+                print("❌ MirrorViewController: Vision pose detection error: \(error)")
+                return
             }
+            
+            guard let observations = request.results as? [VNHumanBodyPose3DObservation],
+                  let observation = observations.first else {
+                return
+            }
+            
+            // Process pose data for form analysis
+            self?.processPoseObservation(observation)
         }
     }
     
     private func setupFormAnalyzer() {
         formAnalyzer = FormAnalyzer()
-        if let exercise = currentExercise {
-            formAnalyzer.setExercise(exercise)
-        }
+        // Set initial exercise
+        let exercise = Exercise(
+            name: currentExercise,
+            category: .legs,
+            description: "Exercise",
+            imageName: "exercise_image",
+            formRequirements: [:],
+            keyJoints: [],
+            squatVariation: nil
+        )
+        formAnalyzer?.setExercise(exercise)
     }
     
-    private func processVisionPoseObservation(_ observation: VNHumanBodyPose3DObservation) {
-        // Analyze form using Vision framework data
-        let formAnalysis = formAnalyzer.analyzeForm(observation)
+    private func processPoseObservation(_ observation: VNHumanBodyPose3DObservation) {
+        guard let analyzer = formAnalyzer else { return }
         
-        // Update UI
-        updateUI(with: formAnalysis)
+        // Analyze form using the analyzer
+        let formAnalysis = analyzer.analyzeForm(observation)
         
-        // Update ARKit mesh with Vision data
-        bodyMeshRenderer?.updateMeshWithVisionData(observation, formAnalysis: formAnalysis)
-        
-        // Track reps
-        trackReps(formAnalysis: formAnalysis)
-    }
-    
-    private func updateUI(with formAnalysis: FormAnalyzer.FormAnalysis) {
-        scoreLabel?.text = "\(Int(formAnalysis.score))%"
-        repLabel?.text = "\(formAnalysis.repCount)"
-        feedbackLabel?.text = formAnalysis.feedback
-    }
-    
-    private func trackReps(formAnalysis: FormAnalyzer.FormAnalysis) {
-        if formAnalysis.isGoodRep {
-            repCount = formAnalysis.repCount
-            lastRepTime = Date()
-            repHistory.append(formAnalysis.score)
-            
-            // Keep only last 10 reps
-            if repHistory.count > 10 {
-                repHistory.removeFirst()
-            }
-        }
-    }
-    
-    func setExercise(_ exercise: Exercise) {
-        currentExercise = exercise
-        formAnalyzer.setExercise(exercise)
-        
-        // Update exercise name label
+        // Update UI with form analysis results
         DispatchQueue.main.async {
-            self.exerciseNameLabel?.text = exercise.name
+            self.updateFormFeedback(formAnalysis)
+        }
+    }
+    
+    private func updateFormFeedback(_ analysis: FormAnalyzer.FormAnalysis) {
+        formFeedbackLabel?.text = "Form Score: \(Int(analysis.score * 100))%"
+        
+        // Update color based on score
+        if analysis.score >= 0.8 {
+            formFeedbackLabel?.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.7)
+        } else if analysis.score >= 0.6 {
+            formFeedbackLabel?.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.7)
+        } else {
+            formFeedbackLabel?.backgroundColor = UIColor.systemRed.withAlphaComponent(0.7)
+        }
+    }
+    
+    private func setupGestureRecognizers() {
+        // Add swipe down gesture to exit
+        swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
+        swipeDownGesture?.direction = .down
+        view.addGestureRecognizer(swipeDownGesture!)
+        print("✅ MirrorViewController: Swipe down gesture added - swipe down to exit")
+    }
+    
+    private func createUIOverlays() {
+        // Create voice assistant overlay using SwiftUI hosting controller
+        let voiceOverlay = VoiceAssistantOverlay()
+        voiceAssistantOverlay = UIHostingController(rootView: voiceOverlay)
+        
+        if let voiceOverlayController = voiceAssistantOverlay {
+            addChild(voiceOverlayController)
+            view.addSubview(voiceOverlayController.view)
+            voiceOverlayController.view.frame = view.bounds
+            voiceOverlayController.didMove(toParent: self)
         }
         
-        print("✅ MirrorViewController: Exercise set to \(exercise.name)")
+        // Create exercise info label
+        exerciseInfoLabel = UILabel()
+        exerciseInfoLabel?.text = "Exercise: \(currentExercise.capitalized)"
+        exerciseInfoLabel?.textColor = .white
+        exerciseInfoLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        exerciseInfoLabel?.textAlignment = .center
+        exerciseInfoLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        exerciseInfoLabel?.layer.cornerRadius = 8
+        exerciseInfoLabel?.layer.masksToBounds = true
+        exerciseInfoLabel?.padding = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        
+        if let exerciseLabel = exerciseInfoLabel {
+            view.addSubview(exerciseLabel)
+            exerciseLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                exerciseLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+                exerciseLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            ])
+        }
+        
+        // Create form feedback label
+        formFeedbackLabel = UILabel()
+        formFeedbackLabel?.text = "Ready to analyze form..."
+        formFeedbackLabel?.textColor = .white
+        formFeedbackLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        formFeedbackLabel?.textAlignment = .center
+        formFeedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        formFeedbackLabel?.layer.cornerRadius = 8
+        formFeedbackLabel?.layer.masksToBounds = true
+        formFeedbackLabel?.padding = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        
+        if let feedbackLabel = formFeedbackLabel {
+            view.addSubview(feedbackLabel)
+            feedbackLabel.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+                feedbackLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+                feedbackLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20),
+                feedbackLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20)
+            ])
+        }
     }
     
     private func showUnsupportedDeviceAlert() {
         let alert = UIAlertController(
             title: "Device Not Supported",
-            message: "Body tracking requires iPhone X or newer with A12 Bionic chip.",
+            message: "Body tracking is not supported on this device. Please use a device with A12 Bionic chip or later.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+            self.dismiss(animated: true)
+        })
         present(alert, animated: true)
-    }
-    
-    private func setupGestureRecognizers() {
-        // Add swipe down gesture to exit camera screen
-        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
-        swipeDownGesture.direction = .down
-        view.addGestureRecognizer(swipeDownGesture)
-        
-        print("✅ MirrorViewController: Swipe down gesture added - swipe down to exit")
     }
     
     @objc private func handleSwipeDown() {
         print("🔄 MirrorViewController: Swipe down detected - dismissing camera screen")
-        
-        // Stop ARKit session immediately
-        arView?.session.pause()
-        
-        // Use SwiftUI dismiss for smooth transition
-        if let dismissClosure = dismissClosure {
-            dismissClosure()
-        } else {
-            // Fallback to standard dismiss
-            self.dismiss(animated: true, completion: nil)
-        }
+        dismiss(animated: true)
     }
     
-    private func createUIOverlays() {
-        // Add swipe down indicator at the top
-        let swipeIndicator = UIView()
-        swipeIndicator.backgroundColor = UIColor.white.withAlphaComponent(0.3)
-        swipeIndicator.layer.cornerRadius = 2
-        swipeIndicator.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(swipeIndicator)
-        
-        // Position swipe indicator at top center
-        NSLayoutConstraint.activate([
-            swipeIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            swipeIndicator.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            swipeIndicator.widthAnchor.constraint(equalToConstant: 40),
-            swipeIndicator.heightAnchor.constraint(equalToConstant: 4)
-        ])
-        
-        // Exercise Name Label - TOP center, compact, elegant
-        exerciseNameLabel = UILabel()
-        exerciseNameLabel?.text = "Exercise"
-        exerciseNameLabel?.textColor = .white
-        exerciseNameLabel?.font = UIFont.systemFont(ofSize: 18, weight: .semibold) // Smaller, more elegant font
-        exerciseNameLabel?.textAlignment = .center
-        exerciseNameLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.5) // Lighter background
-        exerciseNameLabel?.layer.cornerRadius = 12 // Rounded corners
-        exerciseNameLabel?.layer.masksToBounds = true
-        exerciseNameLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Form Score Label - LEFT side, small, dark transparent
-        scoreLabel = UILabel()
-        scoreLabel?.text = "0%"
-        scoreLabel?.textColor = .white
-        scoreLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold) // Smaller font
-        scoreLabel?.textAlignment = .center
-        scoreLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.6) // Darker transparent
-        scoreLabel?.layer.cornerRadius = 6 // Smaller radius
-        scoreLabel?.layer.masksToBounds = true
-        scoreLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Rep Label - RIGHT side, small, dark transparent
-        repLabel = UILabel()
-        repLabel?.text = "0"
-        repLabel?.textColor = .white
-        repLabel?.font = UIFont.systemFont(ofSize: 16, weight: .bold) // Smaller font
-        repLabel?.textAlignment = .center
-        repLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.6) // Darker transparent
-        repLabel?.layer.cornerRadius = 6 // Smaller radius
-        repLabel?.layer.masksToBounds = true
-        repLabel?.translatesAutoresizingMaskIntoConstraints = false
-        
-        // Feedback Label - bottom center
-        feedbackLabel = UILabel()
-        feedbackLabel?.text = ""
-        feedbackLabel?.textColor = .white
-        feedbackLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        feedbackLabel?.textAlignment = .center
-        feedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-        feedbackLabel?.layer.cornerRadius = 8
-        feedbackLabel?.layer.masksToBounds = true
-        feedbackLabel?.translatesAutoresizingMaskIntoConstraints = false
-        feedbackLabel?.numberOfLines = 0
-        
-        // Add to view
-        if let exerciseNameLabel = exerciseNameLabel {
-            view.addSubview(exerciseNameLabel)
-        }
-        if let scoreLabel = scoreLabel {
-            view.addSubview(scoreLabel)
-        }
-        if let repLabel = repLabel {
-            view.addSubview(repLabel)
-        }
-        if let feedbackLabel = feedbackLabel {
-            view.addSubview(feedbackLabel)
-        }
-        
-        // Setup constraints
-        setupConstraints()
-    }
-    
-    private func setupConstraints() {
-        guard let exerciseNameLabel = exerciseNameLabel,
-              let scoreLabel = scoreLabel,
-              let repLabel = repLabel,
-              let feedbackLabel = feedbackLabel else { return }
-        
-        NSLayoutConstraint.activate([
-            // Exercise name label - TOP center, compact
-            exerciseNameLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            exerciseNameLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            exerciseNameLabel.widthAnchor.constraint(equalToConstant: 120), // Compact width
-            exerciseNameLabel.heightAnchor.constraint(equalToConstant: 32), // Compact height
-            
-            // Form score label - LEFT side, top
-            scoreLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 15),
-            scoreLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20), // Left side
-            scoreLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
-            scoreLabel.heightAnchor.constraint(equalToConstant: 30), // Smaller height
-            
-            // Rep label - RIGHT side, top
-            repLabel.topAnchor.constraint(equalTo: exerciseNameLabel.bottomAnchor, constant: 15),
-            repLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20), // Right side
-            repLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
-            repLabel.heightAnchor.constraint(equalToConstant: 30),
-            
-            // Feedback label - bottom center
-            feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-            feedbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            feedbackLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            feedbackLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
-        ])
+    func setExercise(_ exercise: String) {
+        currentExercise = exercise
+        let exerciseObj = Exercise(
+            name: exercise,
+            category: .legs,
+            description: "Exercise",
+            imageName: "exercise_image",
+            formRequirements: [:],
+            keyJoints: [],
+            squatVariation: nil
+        )
+        formAnalyzer?.setExercise(exerciseObj)
+        exerciseInfoLabel?.text = "Exercise: \(exercise.capitalized)"
+        print("✅ MirrorViewController: Exercise set to \(exercise)")
     }
 }
 
@@ -369,12 +311,25 @@ extension MirrorViewController: ARSessionDelegate {
     func session(_ session: ARSession, didFailWithError error: Error) {
         print("❌ MirrorViewController: ARKit session failed: \(error)")
     }
-    
-    func sessionWasInterrupted(_ session: ARSession) {
-        print("⚠️ MirrorViewController: ARKit session was interrupted")
-    }
-    
-    func sessionInterruptionEnded(_ session: ARSession) {
-        print("✅ MirrorViewController: ARKit session interruption ended")
+}
+
+// MARK: - UILabel Extension for Padding
+extension UILabel {
+    var padding: UIEdgeInsets {
+        get {
+            return UIEdgeInsets.zero
+        }
+        set {
+            let paddingView = UIView()
+            paddingView.translatesAutoresizingMaskIntoConstraints = false
+            self.addSubview(paddingView)
+            
+            NSLayoutConstraint.activate([
+                paddingView.topAnchor.constraint(equalTo: self.topAnchor, constant: newValue.top),
+                paddingView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -newValue.bottom),
+                paddingView.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: newValue.left),
+                paddingView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -newValue.right)
+            ])
+        }
     }
 } 

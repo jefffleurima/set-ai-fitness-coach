@@ -52,9 +52,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var speechTimeoutTimer: Timer?
     private let speechPauseTimeout: TimeInterval = 0.5 // Reduced for more responsive listening
     private var conversationTimeoutTimer: Timer?
-    private let conversationTimeout: TimeInterval = 4.0  // Increased to give users more time to speak
+    private let conversationTimeout: TimeInterval = 6.0  // Increased to give users more time to speak
     private let postWakeWordDelay: TimeInterval = 2.0  // Wait 2 seconds after "Hey Rex"
-    private let postResponseListeningTime: TimeInterval = 4.0  // Listen for 4 seconds after response to allow natural conversation
+    private let postResponseListeningTime: TimeInterval = 6.0  // Listen for 6 seconds after response to allow natural conversation
     private var isInConversation = false
     private var isInCheckInPhase = false // Track if we're in the check-in phase
 
@@ -493,9 +493,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             self.feedbackMessage = "Listening for final response..."
             self.startSpeechRecognition()
             
-            // Set timer to end conversation after 4 seconds (more generous)
+            // Set timer to end conversation after the full listening period
             self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
-                print("[Conversation] Final 4-second window expired, ending conversation")
+                print("[Conversation] Final \(self.postResponseListeningTime)-second window expired, ending conversation")
                 self.endConversation()
             }
         }
@@ -534,7 +534,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         stopSpeechRecognition()
         
         // Add longer delay to ensure audio session is ready after ElevenLabs playback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             do {
                 // Use centralized audio session manager with retry
                 try AudioSessionManager.shared.configureForRecording()
@@ -704,31 +704,24 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             // iOS Simulator or invalid hardware - use a format that actually works
             print("[Speech] 🎭 iOS Simulator detected - using compatible format")
             
-            // Try multiple formats that work with the simulator
-            let compatibleFormats = [
-                AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1),
-                AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1),
-                AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)
-            ]
-            
-            var foundFormat: AVAudioFormat? = nil
-            for format in compatibleFormats {
-                if let fmt = format {
-                    foundFormat = fmt
-                    print("[Speech] ✅ Using compatible format: \(fmt)")
-                    break
+            // For iOS Simulator, we need to use the actual hardware format that the simulator provides
+            // The simulator often returns 48kHz even when we query it as 0Hz initially
+            if let simulatorFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1) {
+                recordingFormat = simulatorFormat
+                print("[Speech] ✅ Using simulator format: \(simulatorFormat)")
+            } else {
+                // Fallback to 44.1kHz if 48kHz fails
+                if let fallbackFormat = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1) {
+                    recordingFormat = fallbackFormat
+                    print("[Speech] ✅ Using fallback format: \(fallbackFormat)")
+                } else {
+                    print("[Speech] ❌ Could not create any compatible audio format")
+                    feedbackMessage = "Audio system not ready"
+                    isProcessingSpeech = false
+                    stopSpeechRecognition()
+                    return
                 }
             }
-            
-            guard let safeFormat = foundFormat else {
-                print("[Speech] ❌ Could not create any compatible audio format")
-                feedbackMessage = "Audio system not ready"
-                isProcessingSpeech = false
-                stopSpeechRecognition()
-                return
-            }
-            
-            recordingFormat = safeFormat
         }
         
         // Ensure the audio engine is in a clean state
@@ -838,15 +831,15 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 // Reset and try with a different approach
                 audioEngine.reset()
                 
-                // Try to use a simpler format
-                if let simpleFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1) {
-                    print("[Speech] 🔄 Retrying with simple format: \(simpleFormat)")
+                // For iOS Simulator, we need to match the actual hardware format (48kHz)
+                if let simulatorFormat = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1) {
+                    print("[Speech] 🔄 Retrying with simulator format: \(simulatorFormat)")
                     
                     // Remove existing tap and try again
                     inputNode.removeTap(onBus: 0)
                     
-                    // Install tap with simple format
-                    inputNode.installTap(onBus: 0, bufferSize: 1024, format: simpleFormat) { [weak self] buffer, _ in
+                    // Install tap with simulator format
+                    inputNode.installTap(onBus: 0, bufferSize: 1024, format: simulatorFormat) { [weak self] buffer, _ in
                         guard let self = self, let recognitionRequest = self.recognitionRequest else { return }
                         recognitionRequest.append(buffer)
                     }
@@ -932,16 +925,16 @@ extension VoiceAssistantManager {
     @objc private func handleElevenLabsSpeechFinished() {
         print("[Conversation] ElevenLabs speech finished, starting conversation flow...")
         
-        // Start the conversation flow just like Apple TTS does
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // Start the conversation flow with longer delay to ensure audio session is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.aiResponse = nil
             if self.isInConversation {
-                self.feedbackMessage = "Listening for 2 seconds..."
+                self.feedbackMessage = "Listening for your response..."
                 self.startSpeechRecognition()
                 
-                // Set timer to check in after 2 seconds of silence
+                // Set timer to check in after the full listening period
                 self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
-                    print("[Conversation] 2-second listening window expired, checking in with user...")
+                    print("[Conversation] \(self.postResponseListeningTime)-second listening window expired, checking in with user...")
                     self.checkInWithUser()
                 }
             }
@@ -957,18 +950,18 @@ extension VoiceAssistantManager: AVSpeechSynthesizerDelegate {
     
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         print("[Audio] Finished speaking: \(utterance.speechString)")
-        print("[Conversation] Starting 2-second listening window for follow-up...")
+        print("[Conversation] Starting \(postResponseListeningTime)-second listening window for follow-up...")
         
-        // After speaking, start listening immediately for follow-up
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { // Reduced delay for faster response
+        // After speaking, start listening with proper delay for audio session setup
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.aiResponse = nil
             if self.isInConversation {
-                self.feedbackMessage = "Listening for 2 seconds..."
+                self.feedbackMessage = "Listening for your response..."
                 self.startSpeechRecognition()
                 
-                // Set timer to check in after 2 seconds of silence
+                // Set timer to check in after the full listening period
                 self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
-                    print("[Conversation] 2-second listening window expired, checking in with user...")
+                    print("[Conversation] \(self.postResponseListeningTime)-second listening window expired, checking in with user...")
                     self.checkInWithUser()
                 }
             }
