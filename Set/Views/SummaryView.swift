@@ -17,7 +17,7 @@ struct WorkoutSession: Identifiable {
     static let sampleData: [WorkoutSession] = [
         WorkoutSession(
             date: Date(),
-            exercise: createSampleSquatExercise(),
+            exercise: WorkoutSession.createSampleSquatExercise(),
             reps: 12,
             sets: 3,
             formScore: 85,
@@ -25,7 +25,7 @@ struct WorkoutSession: Identifiable {
         ),
         WorkoutSession(
             date: Date().addingTimeInterval(-86400),
-            exercise: createSampleDeadliftExercise(),
+            exercise: WorkoutSession.createSampleDeadliftExercise(),
             reps: 15,
             sets: 3,
             formScore: 90,
