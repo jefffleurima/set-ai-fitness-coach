@@ -1,6 +1,7 @@
 import SwiftUI
 import HealthKit
 import Foundation
+import Vision
 
 // MARK: - Data Models
 
@@ -16,7 +17,7 @@ struct WorkoutSession: Identifiable {
     static let sampleData: [WorkoutSession] = [
         WorkoutSession(
             date: Date(),
-            exercise: Exercise.examples[0],
+            exercise: createSampleSquatExercise(),
             reps: 12,
             sets: 3,
             formScore: 85,
@@ -24,13 +25,68 @@ struct WorkoutSession: Identifiable {
         ),
         WorkoutSession(
             date: Date().addingTimeInterval(-86400),
-            exercise: Exercise.examples[1],
+            exercise: createSampleDeadliftExercise(),
             reps: 15,
             sets: 3,
             formScore: 90,
             aiTips: ["Perfect form!", "Try to go a bit deeper"]
         )
     ]
+    
+    // Sample exercise creation methods
+    private static func createSampleSquatExercise() -> Exercise {
+        return Exercise(
+            name: "squats",
+            category: .legs,
+            description: "A fundamental lower body exercise that targets the quadriceps, hamstrings, and glutes.",
+            imageName: "figure.strengthtraining.traditional",
+            formRequirements: [
+                "bottom": [
+                    "kneeAngle": 85.0...110.0,
+                    "hipAngle": 45.0...65.0,
+                    "torsoAngle": 30.0...50.0,
+                    "ankleAngle": 60.0...85.0
+                ],
+                "top": [
+                    "kneeAngle": 160.0...180.0,
+                    "hipAngle": 160.0...180.0,
+                    "torsoAngle": 170.0...180.0,
+                    "ankleAngle": 80.0...100.0
+                ]
+            ],
+            keyJoints: [
+                [.leftHip, .leftKnee, .leftAnkle],
+                [.rightHip, .rightKnee, .rightAnkle]
+            ],
+            squatVariation: .balanced
+        )
+    }
+    
+    private static func createSampleDeadliftExercise() -> Exercise {
+        return Exercise(
+            name: "deadlifts",
+            category: .legs,
+            description: "A compound exercise that works the entire posterior chain, including the back, glutes, and hamstrings.",
+            imageName: "figure.strengthtraining.functional",
+            formRequirements: [
+                "bottom": [
+                    "hipHingeAngle": 20.0...50.0,
+                    "backAngle": 165.0...195.0,
+                    "kneeAngle": 100.0...140.0
+                ],
+                "top": [
+                    "hipHingeAngle": 170.0...190.0,
+                    "backAngle": 170.0...190.0,
+                    "kneeAngle": 170.0...190.0
+                ]
+            ],
+            keyJoints: [
+                [.leftShoulder, .leftHip, .leftKnee],
+                [.rightShoulder, .rightHip, .rightKnee]
+            ],
+            squatVariation: nil
+        )
+    }
 }
 
 struct SummaryView: View {
