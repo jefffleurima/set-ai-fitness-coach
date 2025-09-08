@@ -1,14 +1,14 @@
 //
-//  SetTests.swift
-//  SetTests
+//  PeaksetTests.swift
+//  PeaksetTests
 //
-//  Created by Jeff Fleurima on 6/12/25.
+//  Created by Jeff Fleurima on 9/7/25.
 //
 
 import Testing
-@testable import Set
+@testable import Peakset
 
-struct SetTests {
+struct PeaksetTests {
 
     @Test func example() async throws {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.

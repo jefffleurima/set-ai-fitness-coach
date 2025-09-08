@@ -1,6 +1,6 @@
-# Set - AI Fitness Coach Setup Guide
+# PeakSet - AI Fitness Coach Setup Guide
 
-Welcome to **Set**, an AI-powered fitness coaching app that combines AR form analysis, voice assistance, and intelligent workout tracking.
+Welcome to **PeakSet**, an AI-powered fitness coaching app that combines AR form analysis, voice assistance, and intelligent workout tracking.
 
 ## 🚀 Quick Start
 
@@ -13,16 +13,16 @@ Welcome to **Set**, an AI-powered fitness coaching app that combines AR form ana
 ### 1. Clone & Setup
 ```bash
 git clone [your-repo-url]
-cd Set
+cd PeakSet
 ```
 
 ### 2. Configure API Keys
 ```bash
 # Copy the info template
-cp Set/Info.template.plist Set/Info.plist
+cp PeakSet/Info.template.plist PeakSet/Info.plist
 ```
 
-Then edit `Set/Info.plist` and add your API keys:
+Then edit `PeakSet/Info.plist` and add your API keys:
 ```xml
 <key>OPENAI_API_KEY</key>
 <string>your-actual-openai-api-key-here</string>
@@ -41,22 +41,41 @@ Then edit `Set/Info.plist` and add your API keys:
 ```
 
 ### 4. Build & Run
-1. Open `Set.xcodeproj` in Xcode
+1. Open `PeakSet.xcodeproj` in Xcode
 2. Select your target device/simulator
 3. Press `Cmd+R` to build and run
 
 ## 🏗️ Project Structure
 
 ```
-Set/
+PeakSet/
 ├── AR/                 # ARKit body tracking & form analysis
+│   ├── FormAnalyzer.swift           # 3D pose analysis and form validation
+│   ├── MirrorViewController.swift   # Camera view controller for AR
+│   ├── MirrorViewWrapper.swift      # SwiftUI wrapper for AR view
+│   └── SkeletonOverlayView.swift    # 3D skeleton visualization
 ├── Voice/              # Voice assistant & Picovoice integration
 │   ├── AudioSessionManager.swift    # Centralized audio session management
 │   ├── ElevenLabsVoiceManager.swift # ElevenLabs AI voice integration
 │   └── VoiceAssistantManager.swift # Core voice assistant logic
 ├── Views/              # SwiftUI views & UI components
+│   ├── ExerciseView.swift           # Main exercise selection and camera view
+│   ├── MessagesView.swift           # AI coaching conversation history
+│   ├── SummaryView.swift            # Activity tracking and progress
+│   ├── SplashScreenView.swift       # App launch screen
+│   ├── HealthDetailViews.swift      # Detailed health metrics views
+│   └── VoiceAssistantOverlay.swift  # Voice assistant UI overlay
 ├── Models/             # Data models & OpenAI client
+│   ├── Exercise.swift               # Exercise database and definitions
+│   ├── OpenAIClient.swift           # OpenAI API integration
+│   ├── AICoachFeedback.swift        # AI coaching feedback models
+│   └── HealthKitManager.swift       # HealthKit integration
+├── ViewModels/         # MVVM view models
+│   └── AICoachViewModel.swift       # AI coaching business logic
 ├── Theme/              # App theming & design system
+│   └── AppTheme.swift               # Color scheme and styling
+├── Config.swift        # App configuration (gitignored)
+├── Config.template.swift # Configuration template
 ├── Info.plist          # API keys (not in git)
 └── Info.template.plist # Template for contributors
 ```
@@ -77,12 +96,14 @@ Set/
 
 ## 🔑 Features
 
-- **AR Form Analysis**: Real-time exercise form correction using ARKit
-- **Voice Assistant**: "Hey Rex" wake word detection with ElevenLabs AI voices
-- **AI Coaching**: Personalized workout advice powered by OpenAI GPT-4
-- **Activity Tracking**: Apple Fitness-style activity rings with HealthKit
-- **Exercise Library**: Comprehensive workout database with instructions
+- **AR Form Analysis**: Real-time 3D pose detection and exercise form correction using ARKit
+- **Voice Assistant**: "Hey Rex" wake word detection with ElevenLabs AI voices and Apple TTS fallback
+- **AI Coaching**: Personalized workout advice and form feedback powered by OpenAI GPT-4
+- **Activity Tracking**: Apple Fitness-style activity rings with comprehensive HealthKit integration
+- **Exercise Library**: Built-in exercise database with form criteria and safety guidelines
+- **Health Metrics**: Daily step count, calories, distance, and workout session tracking
 - **iOS Simulator Compatible**: Full voice system testing on simulator and device
+- **Professional Audio**: Centralized audio session management with conflict resolution
 
 ## 🛡️ Security & Legal Notes
 

@@ -47,7 +47,7 @@ struct ExerciseView: View {
                         
                         let modelName = exerciseNameMap[exercise.name] ?? exercise.name.lowercased()
                         
-                        if let match = Exercise.examples.first(where: { $0.name.localizedCaseInsensitiveContains(modelName) }) {
+                        if let match = Exercise.database.first(where: { $0.name.localizedCaseInsensitiveContains(modelName) }) {
                             print("✅ ExerciseView: Found exercise match for \(exercise.name) -> \(match.name)")
                             workoutExercise = match
                             showWorkoutCamera = true

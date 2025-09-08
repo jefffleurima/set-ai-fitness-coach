@@ -14,7 +14,7 @@ struct SplashScreenView: View {
 
     var body: some View {
         if isActive {
-            ContentView()
+            MainAppView()
         } else {
             ZStack {
                 LinearGradient(gradient: Gradient(colors: [AppTheme.background, AppTheme.surface]), startPoint: gradientStart, endPoint: gradientEnd)

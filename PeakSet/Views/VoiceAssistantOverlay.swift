@@ -68,6 +68,16 @@ struct VoiceAssistantOverlay: View {
                     .fontWeight(.medium)
                     .foregroundColor(.white.opacity(0.8))
                     .transition(.opacity)
+                
+                // Test button for debugging (only show in debug builds)
+                #if DEBUG
+                Button("Test Conversation") {
+                    voiceAssistant.testConversation()
+                }
+                .font(.caption2)
+                .foregroundColor(.blue)
+                .padding(.top, 5)
+                #endif
             }
         }
         .padding(.horizontal, 20)

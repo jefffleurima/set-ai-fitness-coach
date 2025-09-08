@@ -1,13 +1,13 @@
 //
-//  SetUITestsLaunchTests.swift
-//  SetUITests
+//  PeaksetUITestsLaunchTests.swift
+//  PeaksetUITests
 //
-//  Created by Jeff Fleurima on 6/12/25.
+//  Created by Jeff Fleurima on 9/7/25.
 //
 
 import XCTest
 
-final class SetUITestsLaunchTests: XCTestCase {
+final class PeaksetUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

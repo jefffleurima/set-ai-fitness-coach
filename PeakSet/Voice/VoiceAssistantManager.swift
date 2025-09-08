@@ -52,9 +52,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var speechTimeoutTimer: Timer?
     private let speechPauseTimeout: TimeInterval = 0.5 // Reduced for more responsive listening
     private var conversationTimeoutTimer: Timer?
-    private let conversationTimeout: TimeInterval = 6.0  // Increased to give users more time to speak
-    private let postWakeWordDelay: TimeInterval = 2.0  // Wait 2 seconds after "Hey Rex"
-    private let postResponseListeningTime: TimeInterval = 6.0  // Listen for 6 seconds after response to allow natural conversation
+    private let conversationTimeout: TimeInterval = 10.0  // Give users more time to speak
+    private let postWakeWordDelay: TimeInterval = 1.0  // Reduced delay for faster response
+    private let postResponseListeningTime: TimeInterval = 8.0  // Listen longer after response for natural conversation
     private var isInConversation = false
     private var isInCheckInPhase = false // Track if we're in the check-in phase
 
@@ -113,6 +113,17 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Debug and Test Methods
+    func testConversation() {
+        print("[TEST] Starting conversation test...")
+        isInConversation = true
+        feedbackMessage = "Testing conversation flow..."
+        
+        // Test with a simple greeting
+        let testMessage = "Hello! I'm Rex, your AI fitness coach. How can I help you today?"
+        speakWithPersonality(testMessage, style: .supportive)
+    }
+    
     // MARK: - Workout Mode
     func startWorkoutMode(exercise: String) {
         isWorkoutMode = true
@@ -147,52 +158,23 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         
         print("🎤 [PRIORITY] ElevenLabs Rex voice (PREMIUM) speaking with \(targetStyle) style: \(text)")
         
-        // PRIORITY: ElevenLabs is PREMIUM - must exhaust ALL possibilities before Apple TTS
+        // Try ElevenLabs first, but fallback quickly if it fails
         ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { [weak self] success in
             if success {
-                print("✅ [PREMIUM SUCCESS] ElevenLabs Rex voice delivered perfectly: '\(text)'")
+                print("✅ [PREMIUM SUCCESS] ElevenLabs Rex voice delivered: '\(text)'")
             } else {
-                // ElevenLabs failed after ALL its internal retries - this is serious
-                print("💔 [PREMIUM FAILED] ElevenLabs exhausted ALL attempts - network/API critical failure")
-                print("🔄 [LAST RESORT] Attempting final ElevenLabs recovery before fallback...")
-                
-                // Give ElevenLabs one final chance with longer delay for network recovery
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { [weak self] finalSuccess in
-                        if finalSuccess {
-                            print("🎉 [MIRACLE RECOVERY] ElevenLabs final attempt successful - Rex voice saved!")
-                        } else {
-                            // ONLY NOW fallback to Apple TTS - ElevenLabs truly unavailable
-                            print("😞 [EMERGENCY FALLBACK] ElevenLabs completely unavailable - switching to backup voice")
-                            self?.fallbackToAppleTTSWithMessage(text, style: targetStyle)
-                        }
-                    }
-                }
+                print("⚠️ [FALLBACK] ElevenLabs failed, using Apple TTS for: '\(text)'")
+                // Quick fallback to Apple TTS for better reliability
+                self?.fallbackToAppleTTS(text, style: targetStyle)
             }
         }
     }
     
     // MARK: - Fallback to Apple TTS
     
-    /// Enhanced fallback with seamless transition messaging
+    /// Simple fallback to Apple TTS
     private func fallbackToAppleTTSWithMessage(_ text: String, style: CoachingStyle) {
-        print("🔄 [EMERGENCY TRANSITION] Preparing seamless switch to backup voice system...")
-        
-        // First, provide seamless transition with a brief message if it's a long text
-        let isLongMessage = text.count > 50
-        if isLongMessage {
-            // For longer messages, give a brief transition
-            let transitionMessage = "One moment..."
-            fallbackToAppleTTS(transitionMessage, style: style)
-            
-            // Then deliver the actual message after a brief pause
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.fallbackToAppleTTS(text, style: style)
-            }
-        } else {
-            // For short messages, just deliver directly
-            fallbackToAppleTTS(text, style: style)
-        }
+        fallbackToAppleTTS(text, style: style)
     }
     
     private func fallbackToAppleTTS(_ text: String, style: CoachingStyle) {
@@ -349,20 +331,20 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private func getContextualGreeting() -> String {
         if isWorkoutMode {
             if let exercise = currentExercise {
-                return "Ready to crush those \(exercise)? I'm here to coach you through every rep!"
+                return "Hey! Ready to crush those \(exercise)? I'm here to help with form, motivation, or any questions you have!"
             } else {
-                return "Workout mode activated! What are we working on today?"
+                return "Workout mode is on! What are we working on today?"
             }
         }
         
         // Check time of day for personalized greeting
         let hour = Calendar.current.component(.hour, from: Date())
         if hour < 12 {
-            return "Good morning! I'm here to help with whatever fitness or health questions you have. What's on your mind?"
+            return "Good morning! I'm Rex, your AI fitness coach. What can I help you with today?"
         } else if hour < 17 {
-            return "Good afternoon! Whether it's workout advice, nutrition tips, or health questions, I'm here to help. What do you need?"
+            return "Hey there! I'm Rex, your fitness coach. What do you need help with?"
         } else {
-            return "Good evening! Ready to tackle any fitness or health questions you have. What can I help you with?"
+            return "Good evening! I'm Rex, your AI fitness coach. What can I help you with tonight?"
         }
     }
     
@@ -398,13 +380,13 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                         print("[Wake Word] Processing wake word detection...")
                         // Wait 2 seconds after "Hey Rex" before responding
                         if self.isInConversation == false {
-                            print("[Wake Word] Starting new conversation with 2-second delay...")
-                            self.feedbackMessage = "Hey Rex heard... (waiting 2 seconds)"
+                            print("[Wake Word] Starting new conversation with 1-second delay...")
+                            self.feedbackMessage = "Hey Rex heard... (waiting 1 second)"
                             self.isListening = true
                             
-                            // Wait 2 seconds before responding (in case user is still speaking)
+                            // Wait 1 second before responding (in case user is still speaking)
                             DispatchQueue.main.asyncAfter(deadline: .now() + (self.postWakeWordDelay)) {
-                                print("[Wake Word] 2-second delay complete, now responding...")
+                                print("[Wake Word] 1-second delay complete, now responding...")
                                 
                                 // Choose greeting based on context
                                 let greeting = self.getContextualGreeting()
@@ -481,16 +463,16 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         // Mark that we're in check-in phase
         isInCheckInPhase = true
         
-        // Ask if there's anything else
-        let checkInMessage = "Is there anything else I can help you with?"
+        // Ask if there's anything else with a more natural approach
+        let checkInMessage = "Anything else I can help you with today?"
         self.feedbackMessage = "Checking in..."
         
         // Speak the check-in message
         speakWithPersonality(checkInMessage, style: .supportive)
         
-        // After speaking, wait longer before starting final listening window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.feedbackMessage = "Listening for final response..."
+        // After speaking, wait before starting final listening window
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.feedbackMessage = "Listening for your response..."
             self.startSpeechRecognition()
             
             // Set timer to end conversation after the full listening period
@@ -533,10 +515,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         print("[Speech] Starting speech recognition...")
         stopSpeechRecognition()
         
-        // Add longer delay to ensure audio session is ready after ElevenLabs playback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        // Add delay to ensure audio session is ready after ElevenLabs playback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             do {
-                // Use centralized audio session manager with retry
+                // Use centralized audio session manager
                 try AudioSessionManager.shared.configureForRecording()
                 
                 print("[Speech] Audio session configured successfully for speech recognition")
@@ -547,14 +529,14 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             } catch {
                 print("[Speech] Audio session setup failed: \(error), attempting recovery...")
                 
-                // Try to recover audio session with multiple attempts
+                // Try to recover audio session with one retry
                 self.attemptAudioSessionRecovery(attempt: 1)
             }
         }
     }
     
     private func attemptAudioSessionRecovery(attempt: Int) {
-        let maxAttempts = 3
+        let maxAttempts = 2
         
         guard attempt <= maxAttempts else {
             print("[Speech] Audio session recovery exhausted all attempts")

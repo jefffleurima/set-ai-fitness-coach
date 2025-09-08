@@ -1,13 +1,13 @@
 //
-//  SetUITests.swift
-//  SetUITests
+//  PeaksetUITests.swift
+//  PeaksetUITests
 //
-//  Created by Jeff Fleurima on 6/12/25.
+//  Created by Jeff Fleurima on 9/7/25.
 //
 
 import XCTest
 
-final class SetUITests: XCTestCase {
+final class PeaksetUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

@@ -1,4 +1,4 @@
-# Set - AI Fitness Coach
+# PeakSet - AI Fitness Coach
 
 > **Revolutionizing fitness coaching through AR, AI, and voice assistance**
 
@@ -13,10 +13,11 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 - Natural language coaching powered by OpenAI
 
 ### 📱 **AR Form Analysis**
-- Live body tracking using ARKit
-- 3D pose estimation and form validation
-- Visual feedback overlays during workouts
-- Computer vision-based movement analysis
+- Real-time 3D pose detection using ARKit and Vision framework
+- Comprehensive form analysis with exercise-specific criteria
+- Visual skeleton overlay with joint tracking
+- Rep counting and form quality scoring
+- Safety warnings and improvement tips
 
 ### 🎤 **Rex Voice AI System**
 - 🎙️ **"Hey Rex" wake word detection** - Custom trained model for gym environments
@@ -30,10 +31,11 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 - ♿ **VoiceOver compatibility** - Built-in accessibility support
 
 ### 📊 **Activity Tracking**
-- Apple Fitness-style activity rings
-- HealthKit integration for comprehensive metrics
-- Workout history and progress tracking
-- Calorie, steps, and distance monitoring
+- Apple Fitness-style activity rings with daily/weekly views
+- Comprehensive HealthKit integration for all fitness metrics
+- Real-time step count, calories, and distance tracking
+- Workout session history and progress analysis
+- Hourly activity breakdowns and trends
 
 ## 🤖 **Meet Rex - Your AI Coach**
 
@@ -53,19 +55,14 @@ Rex isn't just a voice assistant - he's your intelligent fitness companion:
 - *"How much rest should I take between sets?"*
 - *"What should I eat for muscle growth?"*
 
-### **🚨 Professional Speech Priority System:**
-Rex uses enterprise-grade speech management with 4 priority levels:
+### **🎤 Voice System Features:**
+Rex provides intelligent voice coaching with multiple personality styles:
 
-- **🚨 Immediate Interrupt** - Safety alerts and form corrections stop everything
-- **⏱️ Immediate Blocking** - Set/rest timing and critical coaching  
-- **💪 Normal Priority** - Standard form feedback and encouragement
-- **🎉 Low Priority** - Background motivation that can be interrupted
-
-**Smart Features:**
-- **Thread-safe queue management** with professional interruption handling
-- **VoiceOver compatibility** - Automatically defers to accessibility when needed
-- **Contextual responses** - Different priorities for different workout phases
-- **Timeout protection** - Prevents stuck speech and ensures responsiveness
+- **🎯 Coaching Styles** - Motivational, technical, supportive, and professional voices
+- **🔄 Smart Fallback** - ElevenLabs AI voices with Apple TTS backup for reliability
+- **💬 Natural Conversation** - 8-second listening window with check-in prompts
+- **🎵 Audio Management** - Centralized session coordination and conflict resolution
+- **♿ Accessibility** - VoiceOver compatibility and inclusive design
 
 ## 🚀 Getting Started
 
@@ -85,46 +82,41 @@ Built with modern iOS development practices and premium voice AI:
 - **VoiceOver Integration** - Seamless accessibility support for all users
 
 ### **📱 Core Technologies:**
-- **SwiftUI** - Responsive, declarative user interface
-- **ARKit** - Real-time body tracking and pose estimation
-- **Vision Framework** - Computer vision for form analysis
-- **HealthKit** - Comprehensive fitness data integration
-- **Core ML** - On-device machine learning capabilities
+- **SwiftUI** - Modern declarative user interface with TabView navigation
+- **ARKit + Vision Framework** - Real-time 3D pose detection and form analysis
+- **HealthKit** - Comprehensive fitness data integration with activity rings
+- **Picovoice Porcupine** - Custom "Hey Rex" wake word detection
+- **ElevenLabs API** - Premium human-like voice synthesis
+- **OpenAI GPT-4** - Intelligent conversational AI for fitness coaching
 
 
-## 🆕 **Latest Voice System Improvements**
+## 🎯 **Current Implementation Status**
 
-### **🔧 iOS Simulator Compatibility (v2.1)**
-- **Smart Format Detection** - Automatically detects iOS Simulator vs real device
-- **Multiple Fallback Formats** - Tries 44.1kHz, 48kHz, 16kHz for optimal compatibility
-- **Robust Audio Conversion** - Handles format mismatches gracefully with AVAudioConverter
-- **Alternative Setup Methods** - If main setup fails, automatically tries simpler approaches
-- **Audio Session Coordination** - Centralized management prevents conflicts between components
-
-### **💬 Enhanced Conversation Flow**
-- **4-Second Listening Window** - Extended from 2 seconds for more natural conversation
-- **Check-in Prompts** - AI asks "Is there anything else I can help with?" before ending
-- **Smooth Transitions** - Seamless handoff between ElevenLabs and Apple TTS fallback
-- **Error Recovery** - Multiple retry attempts with exponential backoff for reliability
+### **✅ Fully Implemented Features:**
+- **Voice Assistant** - "Hey Rex" wake word detection with ElevenLabs AI voices
+- **AR Form Analysis** - Real-time 3D pose detection and exercise form validation
+- **HealthKit Integration** - Comprehensive activity tracking with Apple Fitness-style rings
+- **AI Coaching** - OpenAI GPT-4 powered conversational fitness coaching
+- **Exercise Database** - Built-in exercise library with form criteria and safety guidelines
+- **iOS Simulator Support** - Full voice system testing on both simulator and device
 
 ## 🧪 Testing
 
-Designed and tested for real-world gym environments:
+The app is designed for comprehensive testing across different environments:
 
-### **🎤 Rex Voice Testing:**
-- **Noise-resistant** - Works with background music and gym equipment sounds
-- **Natural conversation** - Tested for human-like interaction patterns
-- **Response speed** - Validated 2-second max response times
-- **Knowledge accuracy** - Verified fitness, nutrition, and health expertise
-- **iOS Simulator compatibility** - Fully tested and optimized for development
-- **Audio format handling** - Robust fallback systems for various audio configurations
-- **Accessibility testing** - VoiceOver compatibility verified across scenarios
+### **🎤 Voice System Testing:**
+- **iOS Simulator Compatible** - Full voice functionality on simulator and device
+- **Audio Format Handling** - Robust fallback systems for various audio configurations
+- **ElevenLabs Integration** - Premium voice synthesis with Apple TTS fallback
+- **Wake Word Detection** - Custom "Hey Rex" model optimized for gym environments
+- **Accessibility Support** - VoiceOver compatibility and inclusive design
 
-### **🏋️ Gym Environment:**
-- **Various lighting conditions** - From dark to bright gym lighting
-- **Multiple exercise types** - Tested across different workout movements
-- **Professional validation** - Reviewed by certified fitness trainers
-- **Investor-ready demos** - Polished for professional presentations
+### **📱 AR & HealthKit Testing:**
+- **3D Pose Detection** - Real-time body tracking with Vision framework
+- **Form Analysis** - Exercise-specific criteria validation and feedback
+- **HealthKit Integration** - Comprehensive fitness data tracking and permissions
+- **Activity Rings** - Apple Fitness-style progress visualization
+- **Cross-device Compatibility** - Tested on various iOS devices and simulators
 
 ## 🤝 Contributing
 
@@ -169,7 +161,7 @@ This project is licensed under a **Proprietary Software License** - see the [LIC
 ### **For Contributors:**
 ```bash
 # 1. Setup your Info.plist
-cp Set/Info.template.plist Set/Info.plist
+cp PeakSet/Info.template.plist PeakSet/Info.plist
 
 # 2. Add your API keys to Info.plist
 # Replace "YOUR_OPENAI_API_KEY_HERE" with your OpenAI key

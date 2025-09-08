@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - Data Models
 
-struct WorkoutSession: Identifiable {
+struct WorkoutSession: Identifiable, Equatable {
     let id = UUID()
     let date: Date
     let exercise: Exercise
@@ -13,31 +13,64 @@ struct WorkoutSession: Identifiable {
     let formScore: Int
     let aiTips: [String]
     
+    static func == (lhs: WorkoutSession, rhs: WorkoutSession) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
     static let sampleData: [WorkoutSession] = [
         WorkoutSession(
             date: Date(),
-            exercise: Exercise.examples[0],
-            reps: 12,
+            exercise: Exercise.database[0], // squats
+            reps: 20,
             sets: 3,
-            formScore: 85,
-            aiTips: ["Great depth on squats!", "Keep core tight"]
+            formScore: 72,
+            aiTips: ["Only 6 reps achieved perfect form", "Focus on knee alignment"]
         ),
         WorkoutSession(
-            date: Date().addingTimeInterval(-86400),
-            exercise: Exercise.examples[1],
+            date: Date().addingTimeInterval(-86400), // yesterday
+            exercise: Exercise.database[0], // squats
             reps: 15,
             sets: 3,
-            formScore: 90,
-            aiTips: ["Perfect form!", "Try to go a bit deeper"]
+            formScore: 68,
+            aiTips: ["Knees caving inward", "Work on depth"]
+        ),
+        WorkoutSession(
+            date: Date().addingTimeInterval(-172800), // 2 days ago
+            exercise: Exercise.database[1], // deadlifts
+            reps: 12,
+            sets: 4,
+            formScore: 88,
+            aiTips: ["Great hip hinge!", "Maintain neutral spine"]
+        ),
+        WorkoutSession(
+            date: Date().addingTimeInterval(-259200), // 3 days ago
+            exercise: Exercise.database[0], // squats
+            reps: 18,
+            sets: 3,
+            formScore: 75,
+            aiTips: ["Good improvement", "Keep core engaged"]
+        ),
+        WorkoutSession(
+            date: Date().addingTimeInterval(-345600), // 4 days ago
+            exercise: Exercise.database[1], // deadlifts
+            reps: 10,
+            sets: 3,
+            formScore: 85,
+            aiTips: ["Solid form", "Control the descent"]
         )
     ]
 }
 
 struct SummaryView: View {
-    @State private var workouts: [WorkoutSession] = WorkoutSession.sampleData
-    @State private var healthData = HealthData()
+    @StateObject private var healthKitManager = HealthKitManager()
+    @StateObject private var aiCoachFeedback = AICoachFeedback()
+    @StateObject private var healthData = HealthData()
     @State private var showingHealthKitPermission = false
     @State private var showingActivityDetail = false
+    @State private var showingStepCountDetail = false
+    @State private var showingActiveEnergyDetail = false
+    @State private var showingSessionsDetail = false
+    @State private var showingStepDistanceDetail = false
     @State private var animateRings = false
     
     var body: some View {
@@ -71,10 +104,46 @@ struct SummaryView: View {
             }
             .navigationBarHidden(true)
             .onAppear {
-                requestHealthKitPermissions()
+                // Generate AI feedback when workout data is available
+                if !healthKitManager.workoutSessions.isEmpty {
+                    aiCoachFeedback.generateFeedback(from: healthKitManager.workoutSessions)
+                } else {
+                    // Generate sample feedback for testing when no real data is available
+                    aiCoachFeedback.generateFeedback(from: WorkoutSession.sampleData)
+                }
+            }
+            .onChange(of: healthKitManager.workoutSessions) { _, sessions in
+                // Regenerate AI feedback when workout data changes
+                if !sessions.isEmpty {
+                    aiCoachFeedback.generateFeedback(from: sessions)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                // Refresh HealthKit data when app becomes active
+                if healthKitManager.isAuthorized {
+                    healthKitManager.loadTodayCalories()
+                    healthKitManager.loadTodayStepCount()
+                    healthKitManager.loadTodayStepDistance()
+                    healthKitManager.loadHourlyStepCount()
+                    healthKitManager.loadHourlyCalories()
+                    healthKitManager.loadHourlyStepDistance()
+                    healthKitManager.loadWorkoutData()
+                }
             }
             .sheet(isPresented: $showingActivityDetail) {
-                ActivityDetailView(healthData: healthData)
+                ActivityDetailView(healthData: healthData, healthKitManager: healthKitManager)
+            }
+            .sheet(isPresented: $showingStepCountDetail) {
+                StepCountDetailView(healthKitManager: healthKitManager)
+            }
+            .sheet(isPresented: $showingActiveEnergyDetail) {
+                ActiveEnergyDetailView(healthKitManager: healthKitManager)
+            }
+            .sheet(isPresented: $showingSessionsDetail) {
+                SessionsDetailView(healthKitManager: healthKitManager)
+            }
+            .sheet(isPresented: $showingStepDistanceDetail) {
+                StepDistanceDetailView(healthKitManager: healthKitManager)
             }
         }
     }
@@ -127,7 +196,7 @@ struct SummaryView: View {
                         
                         // Progress ring
                         Circle()
-                            .trim(from: 0, to: animateRings ? CGFloat(healthData.moveProgress) : 0)
+                            .trim(from: 0, to: animateRings ? CGFloat(Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)) : 0)
                             .stroke(AppTheme.primary, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                             .frame(width: 80, height: 80)
                             .rotationEffect(.degrees(-90))
@@ -135,7 +204,7 @@ struct SummaryView: View {
                         
                         // Center content
                         VStack(spacing: 1) {
-                            Text("\(healthData.calories)")
+                            Text("\(healthKitManager.getTodayCalories())")
                                 .font(.title3)
                                 .fontWeight(.semibold)
                                 .foregroundColor(AppTheme.text)
@@ -154,7 +223,7 @@ struct SummaryView: View {
                                 .fontWeight(.semibold)
                                 .foregroundColor(AppTheme.text)
                             
-                            Text("\(healthData.calories) of \(healthData.moveGoal) calories")
+                            Text("\(healthKitManager.getTodayCalories()) of \(healthData.moveGoal) calories")
                                 .font(.subheadline)
                                 .foregroundColor(AppTheme.textSecondary)
                         }
@@ -165,7 +234,8 @@ struct SummaryView: View {
                                 .fill(AppTheme.primary)
                                 .frame(width: 6, height: 6)
                             
-                            Text("\(Int(healthData.moveProgress * 100))% complete")
+                            let progress = Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)
+                            Text("\(Int(progress * 100))% complete")
                                 .font(.caption)
                                 .foregroundColor(AppTheme.primary)
                                 .fontWeight(.medium)
@@ -221,7 +291,7 @@ struct SummaryView: View {
                 
                 // Workout Stats
                 VStack(alignment: .leading, spacing: 12) {
-                    StatRow(value: "\(healthData.duration)", unit: "min", color: AppTheme.primary)
+                    StatRow(value: "\(calculateTotalWorkoutDuration())", unit: "min", color: AppTheme.primary)
                     StatRow(value: "\(todayWorkouts)", unit: "Workouts today", color: .green)
                     StatRow(value: "\(strengthImprovement)%", unit: "Strength improvement", color: AppTheme.primary)
                 }
@@ -230,7 +300,7 @@ struct SummaryView: View {
             }
             
             // Exercise breakdown
-            if !workouts.isEmpty {
+            if !healthKitManager.workoutSessions.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Last Exercise")
                         .font(.subheadline)
@@ -238,14 +308,14 @@ struct SummaryView: View {
                         .foregroundColor(AppTheme.text)
                     
                     HStack {
-                        Text(workouts.first?.exercise.name ?? "No exercises")
+                        Text(healthKitManager.workoutSessions.first?.exercise.name ?? "No exercises")
                             .font(.body)
                             .foregroundColor(AppTheme.textSecondary)
                         Spacer()
-                        Text("\(workouts.first?.formScore ?? 0)% form")
+                        Text("\(healthKitManager.workoutSessions.first?.formScore ?? 0)% form")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(workouts.first?.formScore ?? 0 >= 80 ? .green : .orange)
+                            .foregroundColor(healthKitManager.workoutSessions.first?.formScore ?? 0 >= 80 ? .green : .orange)
                     }
                 }
             }
@@ -270,12 +340,49 @@ struct SummaryView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(AppTheme.text)
                 Spacer()
+                
+                if let feedback = aiCoachFeedback.feedback {
+                    Text("\(feedback.overallScore)%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(feedback.overallScore >= 85 ? .green : feedback.overallScore >= 75 ? .orange : .red)
+                        .cornerRadius(8)
+                }
             }
             
-            VStack(alignment: .leading, spacing: 12) {
-                FeedbackRow(icon: "checkmark.circle.fill", title: "What's working well", color: .green)
-                FeedbackRow(icon: "target", title: "Areas to focus on", color: .orange)
-                FeedbackRow(icon: "lightbulb.fill", title: "Next session recommendations", color: AppTheme.primary)
+            if aiCoachFeedback.isLoading {
+                ProgressView("Analyzing your workouts...")
+                    .frame(height: 60)
+            } else if let feedback = aiCoachFeedback.feedback {
+                VStack(alignment: .leading, spacing: 12) {
+                    FunctionalFeedbackRow(
+                        icon: "checkmark.circle.fill",
+                        title: "What's working well",
+                        color: .green,
+                        insights: feedback.whatsWorkingWell
+                    )
+                    
+                    FunctionalFeedbackRow(
+                        icon: "target",
+                        title: "Areas to focus on",
+                        color: .orange,
+                        insights: feedback.areasToFocusOn
+                    )
+                    
+                    FunctionalFeedbackRow(
+                        icon: "lightbulb.fill",
+                        title: "Next session recommendations",
+                        color: AppTheme.primary,
+                        insights: feedback.nextSessionRecommendations
+                    )
+                }
+            } else {
+                Text("Complete a workout to get AI feedback")
+                    .foregroundColor(AppTheme.textSecondary)
+                    .frame(height: 60)
             }
         }
         .padding(20)
@@ -286,10 +393,33 @@ struct SummaryView: View {
     // MARK: - Quick Stats Grid
     private var quickStatsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-            QuickStatCard(title: "Step Count", value: "\(healthData.steps)", subtitle: "Today", color: .purple)
-            QuickStatCard(title: "Active Energy", value: "\(healthData.activeEnergy)", subtitle: "CAL", color: .red)
-            QuickStatCard(title: "Sessions", value: "\(todayWorkouts)", subtitle: "Workout App", color: .green)
-            QuickStatCard(title: "Step Distance", value: "\(healthData.stepDistance)", subtitle: "km", color: .purple)
+            Button(action: {
+                showingStepCountDetail = true
+            }) {
+                QuickStatCard(title: "Step Count", value: "\(healthKitManager.getTodayStepCount())", subtitle: "Today", color: .purple)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Button(action: {
+                showingActiveEnergyDetail = true
+            }) {
+                QuickStatCard(title: "Active Energy", value: "\(healthKitManager.getTodayCalories())", subtitle: "CAL", color: .red)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Button(action: {
+                showingSessionsDetail = true
+            }) {
+                QuickStatCard(title: "Sessions", value: "\(healthKitManager.getWeeklyWorkouts())", subtitle: "This Week", color: .green)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            Button(action: {
+                showingStepDistanceDetail = true
+            }) {
+                QuickStatCard(title: "Step Distance", value: "\(String(format: "%.1f", healthKitManager.getTodayStepDistance()))", subtitle: "MI", color: .blue)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
     
@@ -309,8 +439,17 @@ struct SummaryView: View {
             }
             
             VStack(spacing: 12) {
-                ForEach(workouts.prefix(3)) { workout in
-                    WorkoutHistoryCard(workout: workout)
+                if healthKitManager.isLoading {
+                    ProgressView("Loading workout data...")
+                        .frame(height: 100)
+                } else if healthKitManager.workoutSessions.isEmpty {
+                    Text("No workout data found")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .frame(height: 100)
+                } else {
+                    ForEach(healthKitManager.workoutSessions.prefix(3)) { workout in
+                        WorkoutHistoryCard(workout: workout)
+                    }
                 }
             }
         }
@@ -330,30 +469,45 @@ struct SummaryView: View {
     
     // MARK: - Computed Properties
     private var averageFormScore: Double {
-        guard !workouts.isEmpty else { return 0 }
-        return workouts.map { Double($0.formScore) }.reduce(0, +) / Double(workouts.count)
+        guard !healthKitManager.workoutSessions.isEmpty else { return 0 }
+        return healthKitManager.workoutSessions.map { Double($0.formScore) }.reduce(0, +) / Double(healthKitManager.workoutSessions.count)
     }
     
     private var workoutsThisWeek: Int {
-        // TODO: Calculate actual workouts this week
-        return 6
+        return healthKitManager.getWeeklyWorkouts()
+    }
+    
+    private func calculateTotalWorkoutDuration() -> Int {
+        // Calculate total workout duration from today's workouts
+        let todayWorkouts = healthKitManager.workoutSessions.filter { Calendar.current.isDateInToday($0.date) }
+        // Estimate duration based on reps and sets (rough calculation)
+        return todayWorkouts.reduce(0) { total, workout in
+            let estimatedDuration = (workout.reps * workout.sets) / 2 // Rough estimate: 2 reps per minute
+            return total + estimatedDuration
+        }
     }
     
     private var strengthImprovement: Int {
-        // TODO: Calculate actual strength improvement
-        return 23
+        // Calculate strength improvement based on form score trends
+        guard healthKitManager.workoutSessions.count >= 2 else { return 0 }
+        
+        let recentSessions = healthKitManager.workoutSessions.prefix(5)
+        let olderSessions = healthKitManager.workoutSessions.dropFirst(5).prefix(5)
+        
+        guard !recentSessions.isEmpty && !olderSessions.isEmpty else { return 0 }
+        
+        let recentAvg = recentSessions.map { $0.formScore }.reduce(0, +) / recentSessions.count
+        let olderAvg = olderSessions.map { $0.formScore }.reduce(0, +) / olderSessions.count
+        
+        let improvement = ((recentAvg - olderAvg) / olderAvg) * 100
+        return max(0, Int(improvement))
     }
     
     private var todayWorkouts: Int {
-        // TODO: Calculate today's workouts
-        return 1
+        let todayWorkouts = healthKitManager.workoutSessions.filter { Calendar.current.isDateInToday($0.date) }
+        return todayWorkouts.count
     }
     
-    // MARK: - HealthKit Integration
-    private func requestHealthKitPermissions() {
-        // TODO: Implement HealthKit permission request
-        print("🏥 Requesting HealthKit permissions...")
-    }
 }
 
 // MARK: - Supporting Views
@@ -441,6 +595,62 @@ struct FeedbackRow: View {
     }
 }
 
+struct FunctionalFeedbackRow: View {
+    let icon: String
+    let title: String
+    let color: Color
+    let insights: [String]
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isExpanded.toggle()
+                }
+            }) {
+                HStack(spacing: 12) {
+                    Image(systemName: icon)
+                        .foregroundColor(color)
+                        .font(.system(size: 16, weight: .medium))
+                    
+                    Text(title)
+                        .font(.body)
+                        .foregroundColor(AppTheme.text)
+                    
+                    Spacer()
+                    
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.caption)
+                }
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(PlainButtonStyle())
+            
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(insights, id: \.self) { insight in
+                        HStack(alignment: .top, spacing: 8) {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 4, height: 4)
+                                .padding(.top, 6)
+                            
+                            Text(insight)
+                                .font(.caption)
+                                .foregroundColor(AppTheme.textSecondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                    }
+                }
+                .padding(.leading, 28)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+}
+
 struct QuickStatCard: View {
     let title: String
     let value: String
@@ -519,23 +729,28 @@ struct WorkoutHistoryCard: View {
 
 // MARK: - Data Models
 
-struct HealthData {
-    var calories: Int = 356
-    var duration: Int = 45
-    var steps: Int = 8247
-    var activeEnergy: Int = 420
-    var stepDistance: Double = 6.2
+class HealthData: ObservableObject {
+    @Published var calories: Int = 0
+    @Published var duration: Int = 0
+    @Published var steps: Int = 0
+    @Published var activeEnergy: Int = 0
+    @Published var stepDistance: Double = 0.0
     
-    // Activity Ring Data
-    var moveGoal: Int = 500
-    var exerciseGoal: Int = 30
-    var standGoal: Int = 12
+    // Activity Ring Data - customizable goals
+    @Published var moveGoal: Int = UserDefaults.standard.integer(forKey: "moveGoal") != 0 ? UserDefaults.standard.integer(forKey: "moveGoal") : 140
+    @Published var exerciseGoal: Int = 30
+    @Published var standGoal: Int = 12
     
-    var exerciseMinutes: Int = 22
-    var standHours: Int = 8
+    @Published var exerciseMinutes: Int = 0
+    @Published var standHours: Int = 8
     
     var moveProgress: Double {
         return min(Double(calories) / Double(moveGoal), 1.0)
+    }
+    
+    func updateMoveGoal(_ newGoal: Int) {
+        moveGoal = newGoal
+        UserDefaults.standard.set(newGoal, forKey: "moveGoal")
     }
     
     var exerciseProgress: Double {
@@ -546,7 +761,6 @@ struct HealthData {
         return min(Double(standHours) / Double(standGoal), 1.0)
     }
     
-    // TODO: Replace with actual HealthKit data
 }
 
 // MARK: - Activity Detail View
@@ -554,8 +768,47 @@ struct HealthData {
 struct ActivityDetailView: View {
     @Environment(\.dismiss) private var dismiss
     let healthData: HealthData
+    let healthKitManager: HealthKitManager
     @State private var animateRings = false
     @State private var showingGoalMenu = false
+    
+    // MARK: - Weekly Ring Progress Calculation
+    private func getWeeklyRingProgress(for day: String, index: Int) -> Double {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Calculate the date for this day of the week
+        let daysFromToday = index - calendar.component(.weekday, from: today) + 1
+        guard let targetDate = calendar.date(byAdding: .day, value: daysFromToday, to: today) else {
+            return 0.0
+        }
+        
+        // Get calories for this specific date
+        let caloriesForDate = healthKitManager.getCaloriesForDate(targetDate)
+        let progress = Double(caloriesForDate) / Double(healthData.moveGoal)
+        
+        // Return the progress, capped at 1.0
+        return min(progress, 1.0)
+    }
+    
+    // MARK: - Hourly Activity Height Calculation
+    private func getHourlyActivityHeight(for hour: Int) -> Double {
+        let maxHeight: Double = 32
+        let minHeight: Double = 6
+        
+        // Get hourly calories data from HealthKit
+        let hourlyCalories = healthKitManager.hourlyCalories
+        
+        // Get the calories for this specific hour (array index = hour)
+        let caloriesForHour = hour < hourlyCalories.count ? hourlyCalories[hour] : 0
+        
+        // Calculate height based on calories for this hour
+        // Use a reasonable max calories per hour (e.g., 50 calories)
+        let maxCaloriesPerHour: Double = 50
+        let progress = min(Double(caloriesForHour) / maxCaloriesPerHour, 1.0)
+        
+        return minHeight + (progress * (maxHeight - minHeight))
+    }
     
     var body: some View {
         NavigationView {
@@ -572,7 +825,7 @@ struct ActivityDetailView: View {
                             largeRingSection
                             
                             // Activity stats (full width)
-                            activityStatsFullScreen
+                            activityStatsFullScreen(healthKitManager: healthKitManager)
                             
                             // Timeline chart (full width)
                             timelineChartFullScreen
@@ -615,7 +868,7 @@ struct ActivityDetailView: View {
                             .frame(width: 32, height: 32)
                         
                         Circle()
-                            .trim(from: 0, to: day == "F" ? CGFloat(healthData.moveProgress) : Double.random(in: 0.3...1.0))
+                            .trim(from: 0, to: CGFloat(getWeeklyRingProgress(for: day, index: index)))
                             .stroke(AppTheme.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                             .frame(width: 32, height: 32)
                             .rotationEffect(.degrees(-90))
@@ -652,7 +905,7 @@ struct ActivityDetailView: View {
                 
                 // Progress ring with enhanced animation
                 Circle()
-                    .trim(from: 0, to: animateRings ? CGFloat(healthData.moveProgress) : 0)
+                    .trim(from: 0, to: animateRings ? CGFloat(Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)) : 0)
                     .stroke(
                         LinearGradient(
                             colors: [AppTheme.primary, AppTheme.primary.opacity(0.8)],
@@ -667,13 +920,18 @@ struct ActivityDetailView: View {
                 
                 // Enhanced center content
                 VStack(spacing: 6) {
-                    Text("\(healthData.calories)")
+                    Text("\(healthKitManager.getTodayCalories())")
                         .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.text)
                     
-                    Text("/\(healthData.moveGoal)")
-                        .font(.system(size: 24, weight: .medium, design: .rounded))
-                        .foregroundColor(AppTheme.textSecondary)
+                    Button(action: {
+                        showingGoalMenu = true
+                    }) {
+                        Text("/\(healthData.moveGoal)")
+                            .font(.system(size: 24, weight: .medium, design: .rounded))
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                     
                     Text("CALORIES")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -687,7 +945,7 @@ struct ActivityDetailView: View {
     }
     
     // MARK: - Activity Stats Full Screen
-    private var activityStatsFullScreen: some View {
+    private func activityStatsFullScreen(healthKitManager: HealthKitManager) -> some View {
         HStack(spacing: 32) {
             // Steps section with enhanced design
             VStack(alignment: .leading, spacing: 12) {
@@ -700,7 +958,7 @@ struct ActivityDetailView: View {
                         .foregroundColor(AppTheme.text)
                 }
                 
-                Text("\(healthData.steps)")
+                Text("\(healthKitManager.getTodayStepCount())")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.text)
                     .shadow(color: AppTheme.text.opacity(0.1), radius: 2, x: 0, y: 1)
@@ -719,7 +977,7 @@ struct ActivityDetailView: View {
                 }
                 
                 HStack(alignment: .bottom, spacing: 4) {
-                    Text("\(String(format: "%.2f", healthData.stepDistance))")
+                    Text("\(String(format: "%.2f", healthKitManager.getTodayStepDistance()))")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundColor(AppTheme.text)
                         .shadow(color: AppTheme.text.opacity(0.1), radius: 2, x: 0, y: 1)
@@ -766,7 +1024,7 @@ struct ActivityDetailView: View {
                                 endPoint: .top
                             )
                         )
-                        .frame(height: CGFloat.random(in: 6...32))
+                        .frame(height: CGFloat(getHourlyActivityHeight(for: hour)))
                         .animation(.easeInOut(duration: 0.8).delay(Double(hour) * 0.02), value: animateRings)
                 }
             }
@@ -799,7 +1057,7 @@ struct ActivityDetailView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppTheme.textSecondary)
                     .tracking(1)
-                Text("1,243 CAL")
+                Text("\(healthKitManager.getTodayCalories()) CAL")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundColor(AppTheme.primary)
                 Spacer()
@@ -811,7 +1069,7 @@ struct ActivityDetailView: View {
     }
     
     // MARK: - Activity Stats Card (Old)
-    private var activityStatsCard: some View {
+    private func activityStatsCard(healthKitManager: HealthKitManager) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -819,7 +1077,7 @@ struct ActivityDetailView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(AppTheme.textSecondary)
-                    Text("\(healthData.steps)")
+                    Text("\(healthKitManager.getTodayStepCount())")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(AppTheme.text)
@@ -832,7 +1090,7 @@ struct ActivityDetailView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(AppTheme.textSecondary)
-                    Text("\(String(format: "%.2f", healthData.stepDistance)) MI")
+                    Text("\(String(format: "%.2f", healthKitManager.getTodayStepDistance())) MI")
                         .font(.title2)
                         .fontWeight(.semibold)
                         .foregroundColor(AppTheme.text)
@@ -932,6 +1190,8 @@ struct ActivityDetailView: View {
             
             Button(action: {
                 // Handle change daily goal
+                let newGoal = 140 // Default Apple Fitness goal
+                healthData.updateMoveGoal(newGoal)
                 showingGoalMenu = false
             }) {
                 HStack {
@@ -1044,185 +1304,6 @@ struct ActivityDetailView: View {
     
 }
 
-// MARK: - Activity History View
-
-struct ActivityHistoryView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedDate = Date()
-    
-    private let calendar = Calendar.current
-    private let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter
-    }()
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // Selected date stats
-                        selectedDateStatsCard
-                        
-                        // Calendar grid
-                        calendarGrid
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 100)
-                }
-            }
-            .navigationTitle(dateFormatter.string(from: selectedDate))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(AppTheme.primary)
-                }
-            }
-        }
-    }
-    
-    private var selectedDateStatsCard: some View {
-        VStack(spacing: 16) {
-            Text(DateFormatter.dayFormatter.string(from: selectedDate))
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(AppTheme.text)
-            
-            HStack(spacing: 40) {
-                // Activity ring for selected date
-                ZStack {
-                    Circle()
-                        .stroke(Color.red.opacity(0.2), lineWidth: 8)
-                        .frame(width: 80, height: 80)
-                    
-                    Circle()
-                        .trim(from: 0, to: 0.7) // Sample data
-                        .stroke(Color.red, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                        .frame(width: 80, height: 80)
-                        .rotationEffect(.degrees(-90))
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Circle().fill(Color.red).frame(width: 8, height: 8)
-                        Text("Move: 420/500 CAL")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.text)
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(AppTheme.surface)
-        .cornerRadius(16)
-    }
-    
-    private var calendarGrid: some View {
-        VStack(spacing: 16) {
-            // Month navigation
-            HStack {
-                Button(action: {
-                    withAnimation(.spring()) {
-                        selectedDate = calendar.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
-                    }
-                }) {
-                    Image(systemName: "chevron.left")
-                        .foregroundColor(AppTheme.primary)
-                        .font(.title2)
-                }
-                
-                Spacer()
-                
-                Text(dateFormatter.string(from: selectedDate))
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.text)
-                
-                Spacer()
-                
-                Button(action: {
-                    withAnimation(.spring()) {
-                        selectedDate = calendar.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
-                    }
-                }) {
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(AppTheme.primary)
-                        .font(.title2)
-                }
-            }
-            
-            // Days of week header
-            HStack {
-                ForEach(Array(["S", "M", "T", "W", "T", "F", "S"].enumerated()), id: \.offset) { index, day in
-                    Text(day)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            
-            // Calendar days grid
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
-                ForEach(calendarDays, id: \.self) { date in
-                    CalendarDayView(date: date, isSelected: calendar.isDate(date, inSameDayAs: selectedDate)) {
-                        withAnimation(.spring()) {
-                            selectedDate = date
-                        }
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(AppTheme.surface)
-        .cornerRadius(16)
-    }
-    
-    private var calendarDays: [Date] {
-        guard let monthInterval = calendar.dateInterval(of: .month, for: selectedDate) else {
-            return []
-        }
-        
-        let monthStart = monthInterval.start
-        let monthEnd = monthInterval.end
-        
-        // Get the first day of the week for the month
-        let firstWeekday = calendar.component(.weekday, from: monthStart)
-        let daysFromPreviousMonth = (firstWeekday - calendar.firstWeekday + 7) % 7
-        
-        var days: [Date] = []
-        
-        // Add days from previous month
-        for i in (1...daysFromPreviousMonth).reversed() {
-            if let date = calendar.date(byAdding: .day, value: -i, to: monthStart) {
-                days.append(date)
-            }
-        }
-        
-        // Add days from current month
-        var currentDate = monthStart
-        while currentDate < monthEnd {
-            days.append(currentDate)
-            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
-        }
-        
-        // Add days from next month to fill the grid
-        let remainingDays = 42 - days.count // 6 weeks * 7 days
-        for i in 0..<remainingDays {
-            if let date = calendar.date(byAdding: .day, value: i, to: monthEnd) {
-                days.append(date)
-            }
-        }
-        
-        return days
-    }
-}
 
 struct CalendarDayView: View {
     let date: Date

@@ -74,8 +74,8 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
         print("🎤 [PREMIUM] ElevenLabs Rex voice generating: '\(text)' with \(style) style")
         print("🔑 ElevenLabsVoiceManager: Using API key: \(String(apiKey.prefix(10)))...")
         
-        // PRIORITY: Aggressive retry with exponential backoff for premium voice
-        attemptSpeechWithRetry(text: text, style: style, attempt: 1, maxAttempts: 4, completion: completion)
+        // Try with fewer retries for better reliability
+        attemptSpeechWithRetry(text: text, style: style, attempt: 1, maxAttempts: 2, completion: completion)
     }
     
     /// Aggressive retry logic for ElevenLabs premium voice - last resort before Apple TTS
@@ -206,9 +206,9 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
         }
     }
     
-    /// Aggressive audio session recovery for premium ElevenLabs voice
+    /// Audio session recovery for ElevenLabs voice
     private func attemptAudioSessionRecovery(_ audioData: Data, attempt: Int, completion: @escaping (Bool) -> Void) {
-        if attempt < 3 {  // Try up to 3 times with escalating recovery
+        if attempt < 2 {  // Try up to 2 times with escalating recovery
             let recoveryDelay = TimeInterval(attempt) * 0.3 // 0.3s, 0.6s, 0.9s
             print("🔧 [PREMIUM] Audio session recovery attempt \(attempt + 1) in \(recoveryDelay)s...")
             

@@ -9,7 +9,7 @@ struct AppConfig {
     static let apiKey = "YOUR_OPENAI_API_KEY_HERE"
     
     // MARK: - App Settings
-    static let appName = "Set"
+    static let appName = "PeakSet"
     static let version = "1.0.0"
     
     // MARK: - Debug Settings
