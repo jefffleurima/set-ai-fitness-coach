@@ -1,6 +1,6 @@
 # PeakSet - AI Fitness Coach Setup Guide
 
-Welcome to **PeakSet**, an AI-powered fitness coaching app that combines AR form analysis, voice assistance, and intelligent workout tracking.
+Welcome to **PeakSet**, an AI-powered fitness coaching app that combines Vision 2D form analysis, voice assistance, and intelligent workout tracking.
 
 ## 🚀 Quick Start
 
@@ -49,11 +49,11 @@ Then edit `PeakSet/Info.plist` and add your API keys:
 
 ```
 PeakSet/
-├── AR/                 # ARKit body tracking & form analysis
-│   ├── FormAnalyzer.swift           # 3D pose analysis and form validation
-│   ├── MirrorViewController.swift   # Camera view controller for AR
-│   ├── MirrorViewWrapper.swift      # SwiftUI wrapper for AR view
-│   └── SkeletonOverlayView.swift    # 3D skeleton visualization
+├── AR/                 # Vision 2D body tracking & form analysis
+│   ├── FormAnalyzer.swift           # 2D pose analysis and form validation
+│   ├── MirrorViewController.swift   # Camera view controller for Vision 2D
+│   ├── MirrorViewWrapper.swift      # SwiftUI wrapper for Vision 2D view
+│   └── SkeletonOverlayView.swift    # 2D skeleton visualization
 ├── Voice/              # Voice assistant & Picovoice integration
 │   ├── AudioSessionManager.swift    # Centralized audio session management
 │   ├── ElevenLabsVoiceManager.swift # ElevenLabs AI voice integration
@@ -62,9 +62,10 @@ PeakSet/
 │   ├── ExerciseView.swift           # Main exercise selection and camera view
 │   ├── MessagesView.swift           # AI coaching conversation history
 │   ├── SummaryView.swift            # Activity tracking and progress
-│   ├── SplashScreenView.swift       # App launch screen
+│   ├── WelcomeScreenView.swift      # App launch screen with Terms & Conditions
+│   ├── TermsAndConditionsView.swift # Legal terms for TestFlight beta
 │   ├── HealthDetailViews.swift      # Detailed health metrics views
-│   └── VoiceAssistantOverlay.swift  # Voice assistant UI overlay
+│   └── ARKitSkeletonTestView.swift  # Vision 2D skeleton test view
 ├── Models/             # Data models & OpenAI client
 │   ├── Exercise.swift               # Exercise database and definitions
 │   ├── OpenAIClient.swift           # OpenAI API integration
@@ -96,7 +97,7 @@ PeakSet/
 
 ## 🔑 Features
 
-- **AR Form Analysis**: Real-time 3D pose detection and exercise form correction using ARKit
+- **Vision 2D Form Analysis**: Real-time 2D pose detection and exercise form correction using Vision framework
 - **Voice Assistant**: "Hey Rex" wake word detection with ElevenLabs AI voices and Apple TTS fallback
 - **AI Coaching**: Personalized workout advice and form feedback powered by OpenAI GPT-4
 - **Activity Tracking**: Apple Fitness-style activity rings with comprehensive HealthKit integration
@@ -104,6 +105,8 @@ PeakSet/
 - **Health Metrics**: Daily step count, calories, distance, and workout session tracking
 - **iOS Simulator Compatible**: Full voice system testing on simulator and device
 - **Professional Audio**: Centralized audio session management with conflict resolution
+- **Terms & Conditions**: Comprehensive legal protection for TestFlight beta testing
+- **Front Camera Support**: Optimized for mirror-style form analysis
 
 ## 🛡️ Security & Legal Notes
 
@@ -126,10 +129,11 @@ PeakSet/
 
 The app is designed for gym prototype testing:
 - **Voice System**: Fully tested on both iOS Simulator and physical devices
-- **AR Features**: Test on physical devices for best AR performance
-- **Camera permissions** required for AR features
+- **Vision 2D Features**: Test on physical devices for best camera performance
+- **Camera permissions** required for Vision 2D features
 - **Microphone permissions** needed for voice assistant
 - **Audio Session Management**: Robust handling of audio conflicts and format issues
+- **Terms & Conditions**: Required acceptance for TestFlight beta testing
 - **Testing is for development of THIS project only**
 
 ## 🤝 Contributing Guidelines
@@ -148,11 +152,12 @@ The app is designed for gym prototype testing:
 
 ### **What We're Looking For**
 - UI/UX improvements for the fitness tracking screens
-- AR form analysis enhancements
+- Vision 2D form analysis enhancements
 - Voice assistant feature improvements and ElevenLabs integration
 - Audio session management and iOS Simulator compatibility
 - Performance optimizations for gym environments
 - Bug fixes and stability improvements
+- Terms & Conditions and legal compliance improvements
 
 ## 📞 Support
 

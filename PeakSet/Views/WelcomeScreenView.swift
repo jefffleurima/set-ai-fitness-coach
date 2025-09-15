@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SplashScreenView: View {
+struct WelcomeScreenView: View {
     @State private var isActive = false
     @State private var logoOpacity = 0.0
     @State private var logoScale = 0.5
@@ -11,6 +11,8 @@ struct SplashScreenView: View {
     @State private var buttonScale = 0.5
     @State private var gradientStart = UnitPoint(x: 0, y: 0)
     @State private var gradientEnd = UnitPoint(x: 1, y: 1)
+    @State private var showTermsAndConditions = false
+    @State private var hasAcceptedTerms = false
 
     var body: some View {
         if isActive {
@@ -47,7 +49,7 @@ struct SplashScreenView: View {
                         .animation(.easeOut(duration: 0.7).delay(0.7), value: textOffset)
 
                     // App Subtitle
-                    Text("AI-Driven Fitness. Real-Time Form. Next-Level Results.")
+                    Text("AI Form Analysis. Real-Time Coaching. Injury Prevention.")
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundColor(AppTheme.textSecondary)
@@ -71,22 +73,71 @@ struct SplashScreenView: View {
                     
                     Spacer()
                     
+                    // Terms and Conditions Acceptance
+                    VStack(spacing: 16) {
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                hasAcceptedTerms.toggle()
+                            }) {
+                                Image(systemName: hasAcceptedTerms ? "checkmark.square.fill" : "square")
+                                    .font(.title2)
+                                    .foregroundColor(hasAcceptedTerms ? AppTheme.primary : AppTheme.textSecondary)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("I agree to the Terms and Conditions")
+                                    .font(.body)
+                                    .foregroundColor(AppTheme.text)
+                                
+                                Button(action: {
+                                    showTermsAndConditions = true
+                                }) {
+                                    Text("Read Terms & Conditions")
+                                        .font(.caption)
+                                        .foregroundColor(AppTheme.primary)
+                                        .underline()
+                                }
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 32)
+                        
+                        // Beta Warning
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("BETA: AI features are experimental and not validated by research")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                        .padding(.horizontal, 32)
+                    }
+                    
                     // Get Started Button
                     Button(action: {
-                        withAnimation {
-                            isActive = true
+                        if hasAcceptedTerms {
+                            withAnimation {
+                                isActive = true
+                            }
                         }
                     }) {
-                        Text("Get Started")
+                        Text(hasAcceptedTerms ? "Get Started" : "Accept Terms to Continue")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(height: 50)
                             .frame(maxWidth: .infinity)
-                            .background(AppTheme.primary)
+                            .background(hasAcceptedTerms ? AppTheme.primary : Color.gray)
                             .cornerRadius(25)
                     }
+                    .disabled(!hasAcceptedTerms)
                     .padding(.horizontal, 32)
-                    .padding(.top, 40)
+                    .padding(.top, 20)
                 }
                 .onAppear {
                     withAnimation(AppTheme.transitionAnimation) {
@@ -103,11 +154,14 @@ struct SplashScreenView: View {
                         self.gradientEnd = UnitPoint(x: 0, y: 0)
                     }
                 }
+                .sheet(isPresented: $showTermsAndConditions) {
+                    TermsAndConditionsView(isPresented: $showTermsAndConditions, hasAcceptedTerms: $hasAcceptedTerms)
+                }
             }
         }
     }
 }
 
 #Preview {
-    SplashScreenView()
-} 
+    WelcomeScreenView()
+}

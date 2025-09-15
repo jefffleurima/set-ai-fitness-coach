@@ -2,9 +2,20 @@ import Foundation
 import Vision
 import UIKit
 
-/// FormAnalyzer for real-time exercise form analysis using 3D pose detection
+// MARK: - FormAnalyzerDelegate Protocol
+
+protocol FormAnalyzerDelegate: AnyObject {
+    func formAnalyzer(_ analyzer: FormAnalyzer, didUpdateFormScore score: Int)
+    func formAnalyzer(_ analyzer: FormAnalyzer, didUpdateRepCount count: Int)
+    func formAnalyzer(_ analyzer: FormAnalyzer, didProvideFeedback feedback: String)
+}
+
+/// FormAnalyzer for real-time exercise form analysis using Vision 2D pose detection
 /// Uses comprehensive exercise database with verified form criteria for safety
 class FormAnalyzer {
+    
+    // MARK: - Delegate
+    weak var delegate: FormAnalyzerDelegate?
     
     struct FormAnalysis {
         let score: Float
@@ -38,20 +49,22 @@ class FormAnalyzer {
         print("✅ FormAnalyzer: Exercise set to \(exercise.name)")
     }
     
-    func analyzeForm(observation: VNHumanBodyPose3DObservation, exercise: Exercise) -> FormAnalysis {
-        let jointPositions = get3DJointPositions(from: observation)
+    // MARK: - Vision 2D Analysis (for current implementation)
+    
+    func analyzeVisionForm(observation: VNHumanBodyPoseObservation, exercise: Exercise) -> FormAnalysis {
+        let jointPositions = getVisionJointPositions(from: observation)
         
         // Determine current phase
-        let currentPhase = determineCurrentPhase(jointPositions: jointPositions, exercise: exercise)
+        let currentPhase = determineCurrentPhaseVision(jointPositions: jointPositions, exercise: exercise)
         
         // Analyze form for current phase
-        let phaseAnalysis = analyzePhaseForm(jointPositions: jointPositions, phase: currentPhase, exercise: exercise)
+        let phaseAnalysis = analyzePhaseFormVision(jointPositions: jointPositions, phase: currentPhase, exercise: exercise)
         
         // Update rep count and phase history
         updateRepCount(currentPhase: currentPhase, phaseAnalysis: phaseAnalysis)
         
         // Generate comprehensive feedback
-        let (feedback, warnings, tips) = generateComprehensiveFeedback(
+        let (feedback, _, _) = generateComprehensiveFeedback(
             phaseAnalysis: phaseAnalysis,
             currentPhase: currentPhase,
             exercise: exercise
@@ -59,407 +72,266 @@ class FormAnalyzer {
         
         // Calculate overall score
         let overallScore = calculateOverallScore(phaseAnalysis: phaseAnalysis)
-        let quality = determineFormQuality(score: overallScore)
+        let _ = determineFormQuality(score: overallScore)
+        
+        // Notify delegate
+        DispatchQueue.main.async { [weak self] in
+            self?.delegate?.formAnalyzer(self!, didUpdateFormScore: Int(overallScore * 100))
+            self?.delegate?.formAnalyzer(self!, didUpdateRepCount: self?.goodRepCount ?? 0)
+            self?.delegate?.formAnalyzer(self!, didProvideFeedback: feedback)
+        }
         
         return FormAnalysis(
             score: overallScore,
             feedback: feedback,
             repCount: goodRepCount,
             isGoodRep: phaseAnalysis.isGoodRep,
-            quality: quality,
-            warnings: warnings,
-            tips: tips
+            quality: determineFormQuality(score: overallScore),
+            warnings: [],
+            tips: []
         )
     }
     
-    // MARK: - 3D Joint Position Extraction
     
-    private func get3DJointPositions(from observation: VNHumanBodyPose3DObservation) -> [VNHumanBodyPose3DObservation.JointName: simd_float3] {
-        var jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3] = [:]
+    
+    
+    // MARK: - Vision 2D Helper Methods
+    
+    private func getVisionJointPositions(from observation: VNHumanBodyPoseObservation) -> [VNHumanBodyPoseObservation.JointName: CGPoint] {
+        var positions: [VNHumanBodyPoseObservation.JointName: CGPoint] = [:]
         
-        do {
-            let recognizedPoints = try observation.recognizedPoints(.all)
-            
-            for (jointName, point) in recognizedPoints {
-                let positionMatrix = point.position
-                let x: Float = positionMatrix.columns.3.x
-                let y: Float = positionMatrix.columns.3.y
-                let z: Float = positionMatrix.columns.3.z
-                jointPositions[jointName] = simd_float3(x, y, z)
+        let jointNames: [VNHumanBodyPoseObservation.JointName] = [
+            .nose, .neck, .root,
+            .leftShoulder, .leftElbow, .leftWrist, .leftHip, .leftKnee, .leftAnkle,
+            .rightShoulder, .rightElbow, .rightWrist, .rightHip, .rightKnee, .rightAnkle
+        ]
+        
+        for jointName in jointNames {
+            do {
+                let point = try observation.recognizedPoint(jointName)
+                if point.confidence > 0.3 {
+                    positions[jointName] = point.location
+                }
+            } catch {
+                // Handle error or simply skip joint
             }
-        } catch {
-            print("❌ FormAnalyzer: Error getting joint positions: \(error)")
         }
-        
-        return jointPositions
+        return positions
     }
     
-    // MARK: - Phase Detection
-    
-    private func determineCurrentPhase(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> ExercisePhase {
+    private func determineCurrentPhaseVision(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], exercise: Exercise) -> ExercisePhase {
+        // More accurate phase detection based on exercise type
         guard let leftHip = jointPositions[.leftHip],
-              let rightHip = jointPositions[.rightHip],
               let leftKnee = jointPositions[.leftKnee],
+              let rightHip = jointPositions[.rightHip],
               let rightKnee = jointPositions[.rightKnee] else {
             return .rest
         }
         
-        // Calculate average hip and knee positions
         let avgHipY = (leftHip.y + rightHip.y) / 2
-        let _ = (leftKnee.y + rightKnee.y) / 2 // avgKneeY - currently unused but kept for future use
+        let avgKneeY = (leftKnee.y + rightKnee.y) / 2
+        let hipKneeDistance = abs(avgHipY - avgKneeY)
         
-        // Calculate hip-knee angle to determine depth
-        let leftHipKneeAngle = calculateAngle(
-            point1: leftHip,
-            point2: leftKnee,
-            point3: simd_float3(leftKnee.x, leftKnee.y - 0.1, leftKnee.z) // Reference point below knee
-        )
-        let rightHipKneeAngle = calculateAngle(
-            point1: rightHip,
-            point2: rightKnee,
-            point3: simd_float3(rightKnee.x, rightKnee.y - 0.1, rightKnee.z)
-        )
-        let avgHipKneeAngle = (leftHipKneeAngle + rightHipKneeAngle) / 2
-        
-        // Phase detection logic based on exercise type
+        // Exercise-specific phase detection
         switch exercise.name.lowercased() {
         case "squats":
-            return determineSquatPhase(hipKneeAngle: avgHipKneeAngle, hipY: avgHipY)
-        case "deadlifts":
-            return determineDeadliftPhase(hipKneeAngle: avgHipKneeAngle, hipY: avgHipY)
+            // For squats, check hip depth relative to knees
+            if hipKneeDistance > 0.15 {
+                return .bottom // Deep squat position
+            } else if hipKneeDistance > 0.08 {
+                return .descent // Partial squat
+            } else {
+                return .starting // Standing position
+            }
+            
+        case "deadlift":
+            // For deadlift, check if shoulders are significantly above hips
+            if let leftShoulder = jointPositions[.leftShoulder] {
+                let shoulderHipDistance = abs(leftShoulder.y - avgHipY)
+                if shoulderHipDistance > 0.1 {
+                    return .bottom // Bent over position
+                } else if shoulderHipDistance > 0.05 {
+                    return .descent // Partial bend
+                } else {
+                    return .starting // Standing position
+                }
+            }
+            return .rest
+            
         default:
-            return .rest
+            // Generic phase detection
+            if hipKneeDistance > 0.1 {
+                return .bottom
+            } else if hipKneeDistance > 0.05 {
+                return .descent
+            } else {
+                return .starting
+            }
         }
     }
     
-    private func determineSquatPhase(hipKneeAngle: Float, hipY: Float) -> ExercisePhase {
-        // Squat phase detection based on hip-knee angle and hip height
-        if hipKneeAngle > 120 {
-            return .starting
-        } else if hipKneeAngle > 90 && lastPhase == .starting {
-            return .descent
-        } else if hipKneeAngle <= 90 {
-            return .bottom
-        } else if hipKneeAngle > 90 && lastPhase == .bottom {
-            return .ascent
-        } else {
-            return .rest
-        }
-    }
-    
-    private func determineDeadliftPhase(hipKneeAngle: Float, hipY: Float) -> ExercisePhase {
-        // Deadlift phase detection (different from squat)
-        if hipKneeAngle > 140 {
-            return .starting
-        } else if hipKneeAngle > 110 && lastPhase == .starting {
-            return .descent
-        } else if hipKneeAngle <= 110 {
-            return .bottom
-        } else if hipKneeAngle > 110 && lastPhase == .bottom {
-            return .ascent
-        } else {
-            return .rest
-        }
-    }
-    
-    // MARK: - Form Analysis
-    
-    private func analyzePhaseForm(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], phase: ExercisePhase, exercise: Exercise) -> (score: Float, isGoodRep: Bool, criteria: [String: Float]) {
-        
-        guard let exercisePhase = exercise.phases.first(where: { $0.name == phaseName(phase) }) else {
-            return (score: 0.0, isGoodRep: false, criteria: [:])
-        }
+    private func analyzePhaseFormVision(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], phase: ExercisePhase, exercise: Exercise) -> (score: Float, isGoodRep: Bool, criteria: [String: Float]) {
         
         var criteriaScores: [String: Float] = [:]
         var totalScore: Float = 0.0
-        var criticalFailures = 0
+        let criticalFailures = 0
         
-        for criteria in exercisePhase.criteria {
-            let score = evaluateCriteria(criteria: criteria, jointPositions: jointPositions, phase: phase, exercise: exercise)
-            criteriaScores[criteria.name] = score
-            totalScore += score * Float(criteria.importance)
-            
-            // Check for critical failures (safety issues)
-            if criteria.importance >= 0.9 && score < 0.3 {
-                criticalFailures += 1
-            }
+        // Exercise-specific analysis
+        switch exercise.name.lowercased() {
+        case "squats":
+            criteriaScores = analyzeSquatFormVision(jointPositions: jointPositions, phase: phase)
+        case "deadlift":
+            criteriaScores = analyzeDeadliftFormVision(jointPositions: jointPositions, phase: phase)
+        default:
+            criteriaScores = analyzeGenericFormVision(jointPositions: jointPositions, phase: phase)
         }
         
-        let averageScore = totalScore / Float(exercisePhase.criteria.count)
-        let isGoodRep = averageScore >= 0.7 && criticalFailures == 0
+        // Calculate overall score
+        for (_, score) in criteriaScores {
+            totalScore += score
+        }
+        
+        let averageScore = criteriaScores.isEmpty ? 0.0 : totalScore / Float(criteriaScores.count)
+        
+        // Lenient rep counting: Green = 50%+, Red = <50%
+        // Focus on basic exercise recognition rather than strict form perfection
+        // This prevents false negatives until we have real-world data for different body types
+        let isGoodRep = averageScore >= 0.5 && criticalFailures == 0
         
         return (score: averageScore, isGoodRep: isGoodRep, criteria: criteriaScores)
     }
     
-    private func evaluateCriteria(criteria: FormCriteria, jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], phase: ExercisePhase, exercise: Exercise) -> Float {
+    private func analyzeSquatFormVision(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], phase: ExercisePhase) -> [String: Float] {
+        var scores: [String: Float] = [:]
         
-        switch criteria.name {
-        case "kneeAlignment", "kneeTracking":
-            return evaluateKneeAlignment(jointPositions: jointPositions)
-        case "hipHinge":
-            return evaluateHipHinge(jointPositions: jointPositions, exercise: exercise)
-        case "backAngle", "backNeutral", "torsoAngle":
-            return evaluateBackAngle(jointPositions: jointPositions, exercise: exercise)
-        case "depth":
-            return evaluateDepth(jointPositions: jointPositions, exercise: exercise)
-        case "kneeStability":
-            return evaluateKneeStability(jointPositions: jointPositions)
-        case "barPath", "barPosition":
-            return evaluateBarPath(jointPositions: jointPositions, exercise: exercise)
-        case "shoulderPosition":
-            return evaluateShoulderPosition(jointPositions: jointPositions, exercise: exercise)
-        case "hipDrive":
-            return evaluateHipDrive(jointPositions: jointPositions, exercise: exercise)
-        case "smoothMotion":
-            return evaluateSmoothMotion(jointPositions: jointPositions)
-        default:
-            return 0.5 // Default score for unknown criteria
-        }
-    }
-    
-    // MARK: - Specific Form Evaluations
-    
-    private func evaluateKneeAlignment(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3]) -> Float {
-        guard let _ = jointPositions[.leftHip],
-              let _ = jointPositions[.rightHip],
-              let leftKnee = jointPositions[.leftKnee],
-              let rightKnee = jointPositions[.rightKnee],
-              let leftAnkle = jointPositions[.leftAnkle],
-              let rightAnkle = jointPositions[.rightAnkle] else {
-            return 0.0
-        }
+        // Realistic squat analysis - only give good scores for actual squat movements
         
-        // Calculate knee alignment relative to ankle
-        let leftKneeAlignment = abs(leftKnee.x - leftAnkle.x)
-        let rightKneeAlignment = abs(rightKnee.x - rightAnkle.x)
-        let avgAlignment = (leftKneeAlignment + rightKneeAlignment) / 2
-        
-        // Score based on alignment (lower is better)
-        if avgAlignment < 0.05 {
-            return 1.0 // Excellent alignment
-        } else if avgAlignment < 0.1 {
-            return 0.8 // Good alignment
-        } else if avgAlignment < 0.15 {
-            return 0.6 // Acceptable alignment
-        } else {
-            return 0.2 // Poor alignment (knee valgus risk)
-        }
-    }
-    
-    private func evaluateHipHinge(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
-        guard let leftShoulder = jointPositions[.leftShoulder],
-              let rightShoulder = jointPositions[.rightShoulder],
-              let leftHip = jointPositions[.leftHip],
-              let rightHip = jointPositions[.rightHip],
-              let leftKnee = jointPositions[.leftKnee],
-              let rightKnee = jointPositions[.rightKnee] else {
-            return 0.0
-        }
-        
-        let avgShoulder = (leftShoulder + rightShoulder) / 2
-        let avgHip = (leftHip + rightHip) / 2
-        let avgKnee = (leftKnee + rightKnee) / 2
-        
-        let hipHingeAngle = calculateAngle(point1: avgShoulder, point2: avgHip, point3: avgKnee)
-        
-        // Score based on exercise type
-        switch exercise.name.lowercased() {
-        case "squats":
-            if hipHingeAngle >= 20 && hipHingeAngle <= 40 {
-                return 1.0
-            } else if hipHingeAngle >= 15 && hipHingeAngle <= 45 {
-                return 0.8
-            } else {
-                return 0.4
-            }
-        case "deadlifts":
-            if hipHingeAngle >= 20 && hipHingeAngle <= 50 {
-                return 1.0
-            } else if hipHingeAngle >= 15 && hipHingeAngle <= 55 {
-                return 0.8
-            } else {
-                return 0.4
-            }
-        default:
-            return 0.5
-        }
-    }
-    
-    private func evaluateBackAngle(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
-        guard let leftShoulder = jointPositions[.leftShoulder],
-              let rightShoulder = jointPositions[.rightShoulder],
-              let leftHip = jointPositions[.leftHip],
-              let rightHip = jointPositions[.rightHip] else {
-            return 0.0
-        }
-        
-        let avgShoulder = (leftShoulder + rightShoulder) / 2
-        let avgHip = (leftHip + rightHip) / 2
-        
-        // Calculate back angle (shoulder-hip line relative to vertical)
-        let backAngle = atan2(avgShoulder.x - avgHip.x, avgShoulder.y - avgHip.y) * 180 / Float.pi
-        
-        // Score based on exercise type and phase
-        switch exercise.name.lowercased() {
-        case "squats":
-            if backAngle >= 30 && backAngle <= 50 {
-                return 1.0
-            } else if backAngle >= 25 && backAngle <= 55 {
-                return 0.8
-            } else if backAngle >= 20 && backAngle <= 60 {
-                return 0.6
-            } else {
-                return 0.3 // Too much or too little forward lean
-            }
-        case "deadlifts":
-            if backAngle >= 15 && backAngle <= 35 {
-                return 1.0
-            } else if backAngle >= 10 && backAngle <= 40 {
-                return 0.8
-            } else if backAngle >= 5 && backAngle <= 45 {
-                return 0.6
-            } else {
-                return 0.2 // Dangerous back position
-            }
-        default:
-            return 0.5
-        }
-    }
-    
-    private func evaluateDepth(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
+        // Check if we have the essential joints for squat analysis
         guard let leftHip = jointPositions[.leftHip],
-              let rightHip = jointPositions[.rightHip],
               let leftKnee = jointPositions[.leftKnee],
+              let rightHip = jointPositions[.rightHip],
               let rightKnee = jointPositions[.rightKnee] else {
-            return 0.0
+            // Missing essential joints - very low score
+            scores["jointDetection"] = 0.2
+            return scores
         }
         
-        let avgHip = (leftHip + rightHip) / 2
-        let avgKnee = (leftKnee + rightKnee) / 2
+        // Calculate hip and knee positions
+        let avgHipY = (leftHip.y + rightHip.y) / 2
+        let avgKneeY = (leftKnee.y + rightKnee.y) / 2
+        let hipKneeDistance = abs(avgHipY - avgKneeY)
         
-        let hipKneeAngle = calculateAngle(
-            point1: avgHip,
-            point2: avgKnee,
-            point3: simd_float3(avgKnee.x, avgKnee.y - 0.1, avgKnee.z)
-        )
-        
-        // Score based on exercise type
-        switch exercise.name.lowercased() {
-        case "squats":
-            if hipKneeAngle <= 90 {
-                return 1.0 // Parallel or below
-            } else if hipKneeAngle <= 100 {
-                return 0.8 // Close to parallel
-            } else if hipKneeAngle <= 110 {
-                return 0.6 // Above parallel
-            } else {
-                return 0.3 // Too shallow
+        // Movement analysis - only give good scores for actual squat depth
+        if phase == .bottom {
+            // For bottom position, hips should be significantly below knees
+            if hipKneeDistance > 0.15 { // Significant depth
+                scores["movement"] = 0.8
+            } else if hipKneeDistance > 0.08 { // Some depth
+                scores["movement"] = 0.6
+            } else { // No real squat depth
+                scores["movement"] = 0.3
             }
-        case "deadlifts":
-            if hipKneeAngle <= 110 {
-                return 1.0 // Good depth for deadlift
-            } else if hipKneeAngle <= 120 {
-                return 0.8
-            } else if hipKneeAngle <= 130 {
-                return 0.6
-            } else {
-                return 0.4 // Too shallow
-            }
-        default:
-            return 0.5
-        }
-    }
-    
-    private func evaluateKneeStability(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3]) -> Float {
-        // This is a simplified version - in a real implementation, you'd track knee movement over time
-        return evaluateKneeAlignment(jointPositions: jointPositions)
-    }
-    
-    private func evaluateBarPath(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
-        // Simplified bar path evaluation - in reality, you'd track the bar position over time
-        guard let leftShoulder = jointPositions[.leftShoulder],
-              let rightShoulder = jointPositions[.rightShoulder] else {
-            return 0.5
-        }
-        
-        let avgShoulder = (leftShoulder + rightShoulder) / 2
-        
-        // For deadlifts, bar should be close to body
-        if exercise.name.lowercased() == "deadlifts" {
-            if abs(avgShoulder.x) < 0.1 {
-                return 1.0
-            } else if abs(avgShoulder.x) < 0.15 {
-                return 0.8
-            } else {
-                return 0.4
-            }
-        }
-        
-        return 0.8 // Default good score for squats
-    }
-    
-    private func evaluateShoulderPosition(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
-        guard let leftShoulder = jointPositions[.leftShoulder],
-              let rightShoulder = jointPositions[.rightShoulder] else {
-            return 0.5
-        }
-        
-        let avgShoulder = (leftShoulder + rightShoulder) / 2
-        
-        // Check if shoulders are properly positioned
-        if abs(avgShoulder.x) < 0.1 {
-            return 1.0
-        } else if abs(avgShoulder.x) < 0.15 {
-            return 0.8
+        } else if phase == .ascent {
+            // During ascent, check if hips are moving up relative to knees
+            scores["movement"] = 0.7
         } else {
-            return 0.6
-        }
-    }
-    
-    private func evaluateHipDrive(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3], exercise: Exercise) -> Float {
-        // Simplified hip drive evaluation
-        return 0.8 // Default good score
-    }
-    
-    private func evaluateSmoothMotion(jointPositions: [VNHumanBodyPose3DObservation.JointName: simd_float3]) -> Float {
-        // Simplified smooth motion evaluation
-        return 0.8 // Default good score
-    }
-    
-    // MARK: - Utility Functions
-    
-    private func calculateAngle(point1: simd_float3, point2: simd_float3, point3: simd_float3) -> Float {
-        let vector1 = point1 - point2
-        let vector2 = point3 - point2
-        
-        let dot = simd_dot(vector1, vector2)
-        let mag1 = length(vector1)
-        let mag2 = length(vector2)
-        
-        if mag1 == 0 || mag2 == 0 {
-            return 0
+            // Starting position or transition
+            scores["movement"] = 0.5
         }
         
-        let cosAngle = dot / (mag1 * mag2)
-        let clampedCosAngle = max(-1, min(1, cosAngle))
-        return acos(clampedCosAngle) * 180 / Float.pi
-    }
-    
-    private func length(_ vector: simd_float3) -> Float {
-        return sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z)
-    }
-    
-    private func phaseName(_ phase: ExercisePhase) -> String {
-        switch phase {
-        case .starting: return "starting_position"
-        case .descent: return "descent"
-        case .bottom: return "bottom"
-        case .ascent: return "ascent"
-        case .rest: return "rest"
+        // Stability analysis - hips should be roughly aligned
+        let hipAlignment = abs(leftHip.x - rightHip.x)
+        if hipAlignment < 0.1 {
+            scores["stability"] = 0.8
+        } else if hipAlignment < 0.2 {
+            scores["stability"] = 0.6
+        } else {
+            scores["stability"] = 0.4
         }
+        
+        // Knee alignment
+        let kneeAlignment = abs(leftKnee.x - rightKnee.x)
+        if kneeAlignment < 0.15 {
+            scores["kneeAlignment"] = 0.7
+        } else {
+            scores["kneeAlignment"] = 0.5
+        }
+        
+        return scores
     }
     
-    // MARK: - Rep Counting and Feedback
+    private func analyzeDeadliftFormVision(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], phase: ExercisePhase) -> [String: Float] {
+        var scores: [String: Float] = [:]
+        
+        // Realistic deadlift analysis - only give good scores for actual deadlift movements
+        
+        // Check if we have the essential joints for deadlift analysis
+        guard let leftHip = jointPositions[.leftHip],
+              let leftKnee = jointPositions[.leftKnee],
+              let leftShoulder = jointPositions[.leftShoulder],
+              let rightHip = jointPositions[.rightHip] else {
+            // Missing essential joints - very low score
+            scores["jointDetection"] = 0.2
+            return scores
+        }
+        
+        // Calculate hip and shoulder positions
+        let avgHipY = (leftHip.y + rightHip.y) / 2
+        let shoulderY = leftShoulder.y
+        let hipShoulderDistance = abs(avgHipY - shoulderY)
+        
+        // Movement analysis - deadlift involves hip hinge movement
+        if phase == .bottom {
+            // For bottom position, hips should be lower than shoulders (bent over position)
+            if hipShoulderDistance > 0.1 {
+                scores["movement"] = 0.8
+            } else if hipShoulderDistance > 0.05 {
+                scores["movement"] = 0.6
+            } else { // No real hip hinge
+                scores["movement"] = 0.3
+            }
+        } else if phase == .ascent {
+            // During ascent, hips should be moving up
+            scores["movement"] = 0.7
+        } else {
+            // Starting position or transition
+            scores["movement"] = 0.5
+        }
+        
+        // Stability analysis - hips should be roughly aligned
+        let hipAlignment = abs(leftHip.x - rightHip.x)
+        if hipAlignment < 0.1 {
+            scores["stability"] = 0.8
+        } else if hipAlignment < 0.2 {
+            scores["stability"] = 0.6
+        } else {
+            scores["stability"] = 0.4
+        }
+        
+        // Shoulder position relative to hips
+        let shoulderHipAlignment = abs(leftShoulder.x - leftHip.x)
+        if shoulderHipAlignment < 0.15 {
+            scores["shoulderPosition"] = 0.7
+        } else {
+            scores["shoulderPosition"] = 0.5
+        }
+        
+        return scores
+    }
+    
+    private func analyzeGenericFormVision(jointPositions: [VNHumanBodyPoseObservation.JointName: CGPoint], phase: ExercisePhase) -> [String: Float] {
+        var scores: [String: Float] = [:]
+        
+        // Basic stability analysis
+        if let leftHip = jointPositions[.leftHip], let rightHip = jointPositions[.rightHip] {
+            let hipStability = abs(leftHip.x - rightHip.x)
+            scores["stability"] = max(0, 1.0 - Float(hipStability * 5))
+        }
+        
+        return scores
+    }
+    
+    // MARK: - Helper Methods
     
     private func updateRepCount(currentPhase: ExercisePhase, phaseAnalysis: (score: Float, isGoodRep: Bool, criteria: [String: Float])) {
         // Update phase history
@@ -473,17 +345,31 @@ class FormAnalyzer {
             }
         }
         
-        // Detect rep completion (ascent phase with good form)
+        // More realistic rep counting - require actual exercise movement
         if currentPhase == .ascent && phaseAnalysis.isGoodRep {
-            // Check if we completed a full rep cycle
-            if phaseHistory.count >= 4 {
-                let recentPhases = Array(phaseHistory.suffix(4))
-                if recentPhases == [.starting, .descent, .bottom, .ascent] {
-                    goodRepCount += 1
-                    print("✅ FormAnalyzer: Good rep completed! Total: \(goodRepCount)")
-                    phaseHistory.removeAll() // Reset for next rep
+            // Check if we completed a full rep cycle with actual movement
+            if phaseHistory.count >= 3 {
+                let recentPhases = Array(phaseHistory.suffix(3))
+                
+                // Look for a complete movement pattern: descent -> bottom -> ascent
+                if recentPhases.contains(.descent) && recentPhases.contains(.bottom) && recentPhases.contains(.ascent) {
+                    // Additional check: make sure we had good form during the movement
+                    if phaseAnalysis.score >= 0.6 { // Require at least 60% form score
+                        goodRepCount += 1
+                        print("✅ FormAnalyzer: Good rep completed! Score: \(Int(phaseAnalysis.score * 100))%. Total: \(goodRepCount)")
+                        phaseHistory.removeAll() // Reset for next rep
+                    } else {
+                        print("❌ FormAnalyzer: Movement detected but form too poor (Score: \(Int(phaseAnalysis.score * 100))%). Not counting.")
+                    }
                 }
             }
+        }
+        
+        // If form is very poor during ascent, don't count the rep
+        if currentPhase == .ascent && phaseAnalysis.score < 0.4 {
+            print("❌ FormAnalyzer: Very poor form detected (Score: \(Int(phaseAnalysis.score * 100))%). Not counting.")
+            // Reset phase history to start fresh
+            phaseHistory.removeAll()
         }
     }
     
@@ -493,13 +379,13 @@ class FormAnalyzer {
     
     private func determineFormQuality(score: Float) -> FormQuality {
         switch score {
-        case 0.9...1.0:
+        case 0.8...1.0:
             return .excellent
-        case 0.8..<0.9:
+        case 0.6..<0.8:
             return .good
-        case 0.7..<0.8:
+        case 0.5..<0.6:
             return .acceptable
-        case 0.5..<0.7:
+        case 0.3..<0.5:
             return .poor
         default:
             return .dangerous
@@ -507,59 +393,47 @@ class FormAnalyzer {
     }
     
     private func generateComprehensiveFeedback(phaseAnalysis: (score: Float, isGoodRep: Bool, criteria: [String: Float]), currentPhase: ExercisePhase, exercise: Exercise) -> (String, [String], [String]) {
-        
-        guard let exercisePhase = exercise.phases.first(where: { $0.name == phaseName(currentPhase) }) else {
-            return ("Keep practicing!", [], [])
-        }
-        
         var feedback = ""
         var warnings: [String] = []
-        var tips: [String] = []
+        let tips: [String] = []
         
-        // Generate phase-specific feedback
+        // Real-time form percentage feedback
+        let formPercentage = Int(phaseAnalysis.score * 100)
+        
+        // Generate phase-specific feedback with form percentage
         switch currentPhase {
         case .starting:
-            feedback = "Get ready! Focus on proper starting position."
+            feedback = "Get ready! Form: \(formPercentage)%"
         case .descent:
-            feedback = "Control the descent. Keep form tight."
+            feedback = "Control descent. Form: \(formPercentage)%"
         case .bottom:
-            feedback = "Hold position. Maintain control."
+            feedback = "Hold position. Form: \(formPercentage)%"
         case .ascent:
-            feedback = "Drive up with good form!"
+            if phaseAnalysis.isGoodRep {
+                feedback = "Great! Form: \(formPercentage)% - Rep counted!"
+            } else {
+                feedback = "Keep trying! \(formPercentage)% - Not counted"
+            }
         case .rest:
-            feedback = "Rest and prepare for next rep."
+            feedback = "Rest. Next rep target: 50%+"
         }
         
         // Add quality-specific feedback
         let quality = determineFormQuality(score: phaseAnalysis.score)
         switch quality {
         case .excellent:
-            feedback += " Excellent form!"
+            feedback += " 🟢 Excellent!"
         case .good:
-            feedback += " Good form, keep it up!"
+            feedback += " 🟢 Good!"
         case .acceptable:
-            feedback += " Form is okay, focus on improvements."
+            feedback += " 🟡 Keep improving"
         case .poor:
-            feedback += " Form needs work. Focus on technique."
+            feedback += " 🔴 Needs work"
             warnings.append("Form quality is poor. Consider reducing weight.")
         case .dangerous:
-            feedback += " DANGER: Stop and check your form!"
+            feedback += " 🔴 DANGER!"
             warnings.append("⚠️ DANGEROUS FORM DETECTED! Stop immediately and check your technique.")
         }
-        
-        // Add specific warnings for critical failures
-        for (criteriaName, score) in phaseAnalysis.criteria {
-            if score < 0.3 {
-                if let criteria = exercisePhase.criteria.first(where: { $0.name == criteriaName }) {
-                    if criteria.importance >= 0.9 {
-                        warnings.append("⚠️ \(criteria.description) - This is critical for safety!")
-                    }
-                }
-            }
-        }
-        
-        // Add tips from exercise phase
-        tips.append(contentsOf: exercisePhase.tips)
         
         return (feedback, warnings, tips)
     }

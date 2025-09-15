@@ -113,16 +113,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Debug and Test Methods
-    func testConversation() {
-        print("[TEST] Starting conversation test...")
-        isInConversation = true
-        feedbackMessage = "Testing conversation flow..."
-        
-        // Test with a simple greeting
-        let testMessage = "Hello! I'm Rex, your AI fitness coach. How can I help you today?"
-        speakWithPersonality(testMessage, style: .supportive)
-    }
+    
     
     // MARK: - Workout Mode
     func startWorkoutMode(exercise: String) {
@@ -378,23 +369,22 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                     
                     DispatchQueue.main.async {
                         print("[Wake Word] Processing wake word detection...")
-                        // Wait 2 seconds after "Hey Rex" before responding
+                        
                         if self.isInConversation == false {
                             print("[Wake Word] Starting new conversation with 1-second delay...")
                             self.feedbackMessage = "Hey Rex heard... (waiting 1 second)"
-                            self.isListening = true
                             
                             // Wait 1 second before responding (in case user is still speaking)
                             DispatchQueue.main.asyncAfter(deadline: .now() + (self.postWakeWordDelay)) {
                                 print("[Wake Word] 1-second delay complete, now responding...")
                                 
+                                // Mark that we're in a conversation FIRST
+                                self.isInConversation = true
+                                
                                 // Choose greeting based on context
                                 let greeting = self.getContextualGreeting()
                                 self.speakWithPersonality(greeting, style: .supportive)
                                 self.feedbackMessage = "Coach is listening..."
-                                
-                                // Mark that we're in a conversation - listening will start automatically after speech
-                                self.isInConversation = true
                                 
                                 // Reset wake word processing flag
                                 self.isProcessingWakeWord = false

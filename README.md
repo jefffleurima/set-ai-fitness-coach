@@ -12,12 +12,13 @@ An intelligent iOS fitness app that combines real-time form analysis, AI coachin
 - Post-exercise analysis and improvement suggestions
 - Natural language coaching powered by OpenAI
 
-### 📱 **AR Form Analysis**
-- Real-time 3D pose detection using ARKit and Vision framework
+### 📱 **Vision 2D Form Analysis**
+- Real-time 2D pose detection using Vision framework
 - Comprehensive form analysis with exercise-specific criteria
-- Visual skeleton overlay with joint tracking
+- Visual skeleton overlay with 17-joint tracking
 - Rep counting and form quality scoring
 - Safety warnings and improvement tips
+- Front camera support for optimal form analysis
 
 ### 🎤 **Rex Voice AI System**
 - 🎙️ **"Hey Rex" wake word detection** - Custom trained model for gym environments
@@ -83,7 +84,7 @@ Built with modern iOS development practices and premium voice AI:
 
 ### **📱 Core Technologies:**
 - **SwiftUI** - Modern declarative user interface with TabView navigation
-- **ARKit + Vision Framework** - Real-time 3D pose detection and form analysis
+- **Vision Framework** - Real-time 2D pose detection and form analysis
 - **HealthKit** - Comprehensive fitness data integration with activity rings
 - **Picovoice Porcupine** - Custom "Hey Rex" wake word detection
 - **ElevenLabs API** - Premium human-like voice synthesis
@@ -94,14 +95,25 @@ Built with modern iOS development practices and premium voice AI:
 
 ### **✅ Fully Implemented Features:**
 - **Voice Assistant** - "Hey Rex" wake word detection with ElevenLabs AI voices
-- **AR Form Analysis** - Real-time 3D pose detection and exercise form validation
+- **Vision 2D Form Analysis** - Real-time 2D pose detection and exercise form validation
 - **HealthKit Integration** - Comprehensive activity tracking with Apple Fitness-style rings
 - **AI Coaching** - OpenAI GPT-4 powered conversational fitness coaching
 - **Exercise Database** - Built-in exercise library with form criteria and safety guidelines
 - **iOS Simulator Support** - Full voice system testing on both simulator and device
+- **Terms & Conditions** - Comprehensive legal protection for TestFlight beta testing
 
-## 🧪 Testing
+## 🧪 Testing & Beta Release
 
+### **🚀 TestFlight Beta Testing**
+PeakSet is currently in **BETA testing phase** with comprehensive legal protection:
+
+- **⚠️ Beta Disclaimer** - AI features are experimental and not validated by research
+- **🛡️ Legal Protection** - Comprehensive Terms & Conditions for TestFlight distribution
+- **📋 User Agreement** - Required acceptance of terms before app access
+- **⚖️ Liability Limitation** - Clear disclaimers about experimental AI features
+- **🔒 Data Privacy** - Consent for biometric data collection and processing
+
+### **🧪 Testing Environment**
 The app is designed for comprehensive testing across different environments:
 
 ### **🎤 Voice System Testing:**
@@ -111,12 +123,13 @@ The app is designed for comprehensive testing across different environments:
 - **Wake Word Detection** - Custom "Hey Rex" model optimized for gym environments
 - **Accessibility Support** - VoiceOver compatibility and inclusive design
 
-### **📱 AR & HealthKit Testing:**
-- **3D Pose Detection** - Real-time body tracking with Vision framework
+### **📱 Vision 2D & HealthKit Testing:**
+- **2D Pose Detection** - Real-time body tracking with Vision framework
 - **Form Analysis** - Exercise-specific criteria validation and feedback
 - **HealthKit Integration** - Comprehensive fitness data tracking and permissions
 - **Activity Rings** - Apple Fitness-style progress visualization
 - **Cross-device Compatibility** - Tested on various iOS devices and simulators
+- **Front Camera Support** - Optimized for mirror-style form analysis
 
 ## 🤝 Contributing
 

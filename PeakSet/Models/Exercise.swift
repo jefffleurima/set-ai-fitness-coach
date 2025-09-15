@@ -65,7 +65,7 @@ struct Exercise: Identifiable, Hashable {
     let description: String
     let imageName: String
     let phases: [ExercisePhase]
-    let keyJoints: [[VNHumanBodyPose3DObservation.JointName]]
+    let keyJoints: [[VNHumanBodyPoseObservation.JointName]]
     let safetyNotes: [String]
     let bodyTypeConsiderations: [String]
     
@@ -175,7 +175,7 @@ extension Exercise {
                 [.rightHip, .rightKnee, .rightAnkle],
                 [.leftShoulder, .leftHip, .leftKnee],
                 [.rightShoulder, .rightHip, .rightKnee],
-                [.spine, .leftHip, .rightHip]
+                [.root, .leftHip, .rightHip]
             ],
             safetyNotes: [
                 "Knee valgus (caving inward) is the #1 cause of squat injuries",
@@ -288,7 +288,7 @@ extension Exercise {
                 [.rightShoulder, .rightHip, .rightKnee],
                 [.leftHip, .leftKnee, .leftAnkle],
                 [.rightHip, .rightKnee, .rightAnkle],
-                [.spine, .leftHip, .rightHip]
+                [.root, .leftHip, .rightHip]
             ],
             safetyNotes: [
                 "Rounded back is the #1 cause of deadlift injuries",

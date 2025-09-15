@@ -778,14 +778,34 @@ struct ActivityDetailView: View {
         let today = Date()
         
         // Calculate the date for this day of the week
-        let daysFromToday = index - calendar.component(.weekday, from: today) + 1
+        // index 0 = Monday, 1 = Tuesday, etc.
+        // weekday: 1 = Sunday, 2 = Monday, etc.
+        let todayWeekday = calendar.component(.weekday, from: today)
+        let _ = 2 // Monday is weekday 2
+        
+        // Calculate how many days from Monday to today
+        let daysFromMonday = (todayWeekday + 5) % 7 // Convert to 0-6 where 0 is Monday
+        
+        // Calculate the date for this specific day of the week
+        let daysFromToday = index - daysFromMonday
         guard let targetDate = calendar.date(byAdding: .day, value: daysFromToday, to: today) else {
+            return 0.0
+        }
+        
+        // Don't show progress for future dates
+        if targetDate > today {
             return 0.0
         }
         
         // Get calories for this specific date
         let caloriesForDate = healthKitManager.getCaloriesForDate(targetDate)
         let progress = Double(caloriesForDate) / Double(healthData.moveGoal)
+        
+        // Debug logging
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "MMM dd"
+        let dateString = dateFormatter.string(from: targetDate)
+        print("Weekly Ring [\(day)] \(dateString): \(caloriesForDate) cal, progress: \(progress)")
         
         // Return the progress, capped at 1.0
         return min(progress, 1.0)

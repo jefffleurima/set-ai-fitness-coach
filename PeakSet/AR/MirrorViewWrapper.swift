@@ -1,26 +1,23 @@
 import SwiftUI
 import UIKit
 
+/// MirrorViewWrapper - SwiftUI wrapper for MirrorViewController
+/// Provides a simple interface to the Vision 2D camera and skeleton system
 struct MirrorViewWrapper: UIViewControllerRepresentable {
-    let exercise: Exercise
-    @Environment(\.dismiss) private var dismiss
+    
+    @Binding var isPresented: Bool
+    let exercise: String
+    var useFrontCamera: Bool = true
     
     func makeUIViewController(context: Context) -> MirrorViewController {
-        print("🔧 MirrorViewWrapper: Creating MirrorViewController for exercise: \(exercise.name)")
-        let viewController = MirrorViewController()
-        
-        // Set the exercise and dismiss closure
-        DispatchQueue.main.async {
-            viewController.setExercise(self.exercise.name)
-            viewController.dismissClosure = {
-                self.dismiss()
-            }
-        }
-        print("✅ MirrorViewWrapper: MirrorViewController created successfully")
-        return viewController
+        let controller = MirrorViewController()
+        controller.currentExercise = exercise
+        controller.useFrontCamera = useFrontCamera
+        return controller
     }
     
     func updateUIViewController(_ uiViewController: MirrorViewController, context: Context) {
-        // Update if needed
+        uiViewController.currentExercise = exercise
+        uiViewController.useFrontCamera = useFrontCamera
     }
-} 
+}

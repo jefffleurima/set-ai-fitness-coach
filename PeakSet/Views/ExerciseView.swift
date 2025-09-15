@@ -60,7 +60,11 @@ struct ExerciseView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             .fullScreenCover(item: $workoutExercise) { exercise in
-                MirrorViewWrapper(exercise: exercise)
+                MirrorViewWrapper(
+                    isPresented: .constant(true),
+                    exercise: exercise.name,
+                    useFrontCamera: true
+                )
             }
             .alert(isPresented: $showNoMatchAlert) {
                 Alert(title: Text("Exercise Not Found"), message: Text("Sorry, this exercise is not available for camera tracking yet."), dismissButton: .default(Text("OK")))

@@ -58,7 +58,7 @@ struct MessagesView: View {
                                 .focused($isInputFocused)
                             
                             if messageText.isEmpty {
-                                Text("Ask your coach anything...")
+                                Text("Ask Rex anything...")
                                     .foregroundColor(AppTheme.text.opacity(0.4))
                                     .padding(.horizontal, 20)
                                     .padding(.vertical, 8)
@@ -376,63 +376,3 @@ struct AnyShape: Shape, @unchecked Sendable {
             ]
         }
 }
-
-// Preview-friendly text input for testing
-struct PreviewTextInput: View {
-    @State private var text = ""
-    @State private var height: CGFloat = 36
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("Test Text Input")
-                .font(.headline)
-                .foregroundColor(AppTheme.text)
-            
-            HStack(alignment: .bottom, spacing: 8) {
-                ZStack(alignment: .leading) {
-                    TextField("Type here to test...", text: $text, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.surface)
-                        .foregroundColor(AppTheme.text)
-                        .clipShape(
-                            height <= 44
-                            ? AnyShape(Capsule())
-                            : AnyShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        )
-                        .lineLimit(1...5)
-                    
-                    if text.isEmpty {
-                        Text("Type here to test...")
-                            .foregroundColor(AppTheme.text.opacity(0.4))
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 8)
-                            .allowsHitTesting(false)
-                    }
-                }
-                
-                Button(action: {
-                    print("Send: \(text)")
-                    text = ""
-                }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(text.isEmpty ? AppTheme.text.opacity(0.3) : AppTheme.primary)
-                }
-                .disabled(text.isEmpty)
-            }
-            .padding(.horizontal, 12)
-            
-            Text("Preview Text Input - This works in previews!")
-                .font(.caption)
-                .foregroundColor(AppTheme.text.opacity(0.6))
-        }
-        .padding()
-        .background(AppTheme.background)
-    }
-}
-
-#Preview("Text Input Test") {
-    PreviewTextInput()
-} 

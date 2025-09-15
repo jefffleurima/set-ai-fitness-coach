@@ -1,57 +1,42 @@
 import UIKit
 import AVFoundation
-import SwiftUI
 import Vision
 
+/// MirrorViewController for displaying camera feed with 2D skeleton overlay
+/// Uses Vision framework for simple, reliable 2D body tracking
 class MirrorViewController: UIViewController {
-    private var previewLayer: AVCaptureVideoPreviewLayer?
+    
     private var captureSession: AVCaptureSession?
-    private var videoOutput: AVCaptureVideoDataOutput?
-    
-    // Vision framework for pose detection
-    private var poseRequest: VNDetectHumanBodyPose3DRequest?
-    
-    // Form analyzer
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var skeletonOverlayView: SkeletonOverlayView?
     private var formAnalyzer: FormAnalyzer?
     
-    // UI overlays
-    private var exerciseInfoLabel: UILabel?
-    private var formFeedbackLabel: UILabel?
+    // UI Elements
+    private var exerciseLabel: UILabel?
     private var formScoreLabel: UILabel?
     private var repCountLabel: UILabel?
-    private var skeletonOverlayView: SkeletonOverlayView?
+    private var feedbackLabel: UILabel?
     
-    // Gesture recognizers
-    private var swipeDownGesture: UISwipeGestureRecognizer?
+    var currentExercise: String = "squats"
+    var useFrontCamera: Bool = true
     
-    // State tracking
-    private var isCameraSetup = false
-    private var isUsingFrontCamera = true  // Always use front camera for mirror view
-    private var currentExercise: String = "squats"
-    private var currentFormScore: Int = 0
+    // Form tracking data
+    private var currentFormScore: Int = 60
     private var currentRepCount: Int = 0
-    
-    // Dismiss closure for SwiftUI integration
-    var dismissClosure: (() -> Void)?
+    private var currentFeedback: String = "Form needs improvement, focus on technique"
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        print("🔧 MirrorViewController: viewDidLoad called")
-        setupUI()
-        setupVision()
+        setupCamera()
+        setupSkeletonOverlay()
+        setupUI() // Setup UI last so it appears on top
         setupFormAnalyzer()
-        setupGestureRecognizers()
+        setupGestures()
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        print("🔧 MirrorViewController: viewDidAppear called")
-        
-        // Setup camera only when view is fully visible
-        if !isCameraSetup {
-            setupCamera()
-            isCameraSetup = true
-        }
+        startCamera()
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -59,531 +44,374 @@ class MirrorViewController: UIViewController {
         stopCamera()
     }
     
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        // Update preview layer frame when view layout changes
-        previewLayer?.frame = view.bounds
-    }
+    // MARK: - UI Setup
     
     private func setupUI() {
         view.backgroundColor = .black
         
-        // Create preview layer for camera feed
-        previewLayer = AVCaptureVideoPreviewLayer()
-        previewLayer?.videoGravity = .resizeAspectFill
-        previewLayer?.frame = view.bounds
         
-        if let previewLayer = previewLayer {
-            view.layer.addSublayer(previewLayer)
-        }
+        // Exercise label (top center) - elegant styling
+        exerciseLabel = createExerciseLabel(text: currentExercise.capitalized)
+        guard let exerciseLabel = exerciseLabel else { return }
+        view.addSubview(exerciseLabel)
         
-        print("✅ MirrorViewController: Preview layer created and added to view hierarchy")
+        // Form score label (top left)
+        formScoreLabel = createBadgeLabel(text: "\(currentFormScore)%")
+        guard let formScoreLabel = formScoreLabel else { return }
+        view.addSubview(formScoreLabel)
         
-        // Create skeleton overlay
-        skeletonOverlayView = SkeletonOverlayView(frame: view.bounds)
-        skeletonOverlayView?.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        if let skeletonView = skeletonOverlayView {
-            view.addSubview(skeletonView)
-        }
+        // Rep count label (top right)
+        repCountLabel = createBadgeLabel(text: "\(currentRepCount)")
+        guard let repCountLabel = repCountLabel else { return }
+        view.addSubview(repCountLabel)
         
-        // Create UI overlays
-        createUIOverlays()
+        // Feedback label (bottom)
+        feedbackLabel = createFeedbackLabel(text: currentFeedback)
+        guard let feedbackLabel = feedbackLabel else { return }
+        view.addSubview(feedbackLabel)
+        
+        // Setup constraints
+        setupUIConstraints()
+        
+        // Bring UI elements to the front
+        bringUIElementsToFront()
     }
+    
+    private func createBadgeLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 6
+        label.layer.masksToBounds = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 1
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
+        return label
+    }
+    
+    private func createExerciseLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 12
+        label.layer.masksToBounds = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 1
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
+        return label
+    }
+    
+    private func createFeedbackLabel(text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        label.textAlignment = .center
+        label.layer.cornerRadius = 8
+        label.layer.masksToBounds = true
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.numberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
+        return label
+    }
+    
+    
+    private func setupUIConstraints() {
+        guard let exerciseLabel = exerciseLabel,
+              let formScoreLabel = formScoreLabel,
+              let repCountLabel = repCountLabel,
+              let feedbackLabel = feedbackLabel else { return }
+        
+        NSLayoutConstraint.activate([
+            // Exercise name label - TOP center, compact, elegant
+            exerciseLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            exerciseLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            exerciseLabel.widthAnchor.constraint(equalToConstant: 120), // Compact width
+            exerciseLabel.heightAnchor.constraint(equalToConstant: 32), // Compact height
+            
+            // Form score label - LEFT side, top
+            formScoreLabel.topAnchor.constraint(equalTo: exerciseLabel.bottomAnchor, constant: 15),
+            formScoreLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20), // Left side
+            formScoreLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
+            formScoreLabel.heightAnchor.constraint(equalToConstant: 30), // Smaller height
+            
+            // Rep label - RIGHT side, top
+            repCountLabel.topAnchor.constraint(equalTo: exerciseLabel.bottomAnchor, constant: 15),
+            repCountLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20), // Right side
+            repCountLabel.widthAnchor.constraint(equalToConstant: 60), // Smaller width
+            repCountLabel.heightAnchor.constraint(equalToConstant: 30),
+            
+            // Feedback label - bottom center
+            feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            feedbackLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            feedbackLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            feedbackLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
+        ])
+    }
+    
+    private func bringUIElementsToFront() {
+        // Bring all UI elements to the front
+        if let exerciseLabel = exerciseLabel {
+            view.bringSubviewToFront(exerciseLabel)
+        }
+        if let formScoreLabel = formScoreLabel {
+            view.bringSubviewToFront(formScoreLabel)
+        }
+        if let repCountLabel = repCountLabel {
+            view.bringSubviewToFront(repCountLabel)
+        }
+        if let feedbackLabel = feedbackLabel {
+            view.bringSubviewToFront(feedbackLabel)
+        }
+    }
+    
+    // MARK: - Gesture Setup
+    
+    private func setupGestures() {
+        // Add swipe down gesture to end set and return to exercise view
+        let swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown(_:)))
+        swipeDownGesture.direction = .down
+        swipeDownGesture.numberOfTouchesRequired = 1
+        view.addGestureRecognizer(swipeDownGesture)
+        
+        // Ensure gesture recognizer works with all UI elements
+        view.isUserInteractionEnabled = true
+    }
+    
+    @objc private func handleSwipeDown(_ gesture: UISwipeGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        
+        // End the set and return to exercise view
+        endSetAndReturnToExercise()
+    }
+    
+    private func endSetAndReturnToExercise() {
+        // Stop camera
+        stopCamera()
+        
+        // Dismiss the current view controller
+        DispatchQueue.main.async { [weak self] in
+            if let presentingViewController = self?.presentingViewController {
+                presentingViewController.dismiss(animated: true, completion: {
+                    print("✅ Set ended - returned to ExerciseView")
+                })
+            } else {
+                // If no presenting view controller, try to pop if in navigation controller
+                self?.navigationController?.popViewController(animated: true)
+            }
+        }
+    }
+    
+    // MARK: - Camera Setup
     
     private func setupCamera() {
-        print("🔧 MirrorViewController: Setting up camera")
-        
-        // Check camera permissions first
-        checkCameraPermissions { [weak self] granted in
-            guard granted else {
-                DispatchQueue.main.async {
-                    self?.showCameraPermissionAlert()
-                }
-                return
-            }
-            
-            DispatchQueue.main.async {
-                self?.configureCameraSession()
-            }
-        }
-    }
-    
-    private func checkCameraPermissions(completion: @escaping (Bool) -> Void) {
-        switch AVCaptureDevice.authorizationStatus(for: .video) {
-        case .authorized:
-            completion(true)
-        case .notDetermined:
-            AVCaptureDevice.requestAccess(for: .video) { granted in
-                completion(granted)
-            }
-        case .denied, .restricted:
-            completion(false)
-        @unknown default:
-            completion(false)
-        }
-    }
-    
-    private func configureCameraSession() {
-        print("🔧 MirrorViewController: Starting camera configuration...")
-        
-        // Create capture session with optimal settings for 3D pose detection
         captureSession = AVCaptureSession()
-        captureSession?.sessionPreset = .hd1920x1080 // Higher resolution for better 3D detection
+        guard let captureSession = captureSession else { return }
         
-        guard let captureSession = captureSession else { 
-            print("❌ MirrorViewController: Failed to create capture session")
-            return 
-        }
+        captureSession.sessionPreset = .high
         
-        // Get camera device (ALWAYS use front camera)
-        let devicePosition: AVCaptureDevice.Position = .front
-        guard let cameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: devicePosition) else {
-            print("❌ MirrorViewController: Front camera not available")
-            showCameraErrorAlert()
+        // Setup camera input
+        guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, 
+                                                   for: .video, 
+                                                   position: useFrontCamera ? .front : .back) else {
+            print("❌ MirrorViewController: Camera not available")
             return
         }
         
-        print("✅ MirrorViewController: Front camera device found")
-        
-        // Configure camera for optimal 3D pose detection
         do {
-            try cameraDevice.lockForConfiguration()
-            
-            // Set optimal settings for pose detection
-            if cameraDevice.isFocusModeSupported(.continuousAutoFocus) {
-                cameraDevice.focusMode = .continuousAutoFocus
-            }
-            if cameraDevice.isExposureModeSupported(.continuousAutoExposure) {
-                cameraDevice.exposureMode = .continuousAutoExposure
-            }
-            if cameraDevice.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
-                cameraDevice.whiteBalanceMode = .continuousAutoWhiteBalance
+            let input = try AVCaptureDeviceInput(device: camera)
+            if captureSession.canAddInput(input) {
+                captureSession.addInput(input)
             }
             
-            // Set optimal frame rate for pose detection
-            if cameraDevice.isLockingFocusWithCustomLensPositionSupported {
-                cameraDevice.setFocusModeLocked(lensPosition: 0.5, completionHandler: nil)
+            // Setup video output
+            let output = AVCaptureVideoDataOutput()
+            output.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
+            
+            if captureSession.canAddOutput(output) {
+                captureSession.addOutput(output)
             }
             
-            cameraDevice.unlockForConfiguration()
+            // Setup preview layer
+            previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+            previewLayer?.videoGravity = .resizeAspectFill
+            previewLayer?.frame = view.bounds
             
-            let cameraInput = try AVCaptureDeviceInput(device: cameraDevice)
-            if captureSession.canAddInput(cameraInput) {
-                captureSession.addInput(cameraInput)
-                print("✅ MirrorViewController: Camera input added to session")
-            } else {
-                print("❌ MirrorViewController: Cannot add camera input to session")
+            if let previewLayer = previewLayer {
+                view.layer.addSublayer(previewLayer)
             }
+            
         } catch {
-            print("❌ MirrorViewController: Failed to create camera input: \(error)")
-            showCameraErrorAlert()
-            return
+            print("❌ MirrorViewController: Error setting up camera: \(error)")
         }
-        
-        // Create video output with optimal settings for 3D pose detection
-        videoOutput = AVCaptureVideoDataOutput()
-        videoOutput?.setSampleBufferDelegate(self, queue: DispatchQueue.global(qos: .userInteractive))
-        videoOutput?.alwaysDiscardsLateVideoFrames = true
-        videoOutput?.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
-        
-        if let videoOutput = videoOutput, captureSession.canAddOutput(videoOutput) {
-            captureSession.addOutput(videoOutput)
-            print("✅ MirrorViewController: Video output added to session")
-        } else {
-            print("❌ MirrorViewController: Cannot add video output to session")
-        }
-        
-        // Update preview layer
-        previewLayer?.session = captureSession
-        print("✅ MirrorViewController: Preview layer session updated")
-        
-        // Start capture session on background queue
-        DispatchQueue.global(qos: .userInitiated).async {
-            print("🔧 MirrorViewController: Starting capture session on background queue...")
-            captureSession.startRunning()
-            
-            DispatchQueue.main.async {
-                if captureSession.isRunning {
-                    print("✅ MirrorViewController: Camera session started successfully")
-                    // Force a layout update to ensure preview layer is visible
-                    self.view.setNeedsLayout()
-                    self.view.layoutIfNeeded()
-                } else {
-                    print("❌ MirrorViewController: Camera session failed to start")
-                }
-            }
+    }
+    
+    private func startCamera() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession?.startRunning()
         }
     }
     
     private func stopCamera() {
-        captureSession?.stopRunning()
-        print("🛑 MirrorViewController: Camera session stopped")
-    }
-    
-    private func setupVision() {
-        // Configure the pose request with optimized 3D detection settings
-        poseRequest = VNDetectHumanBodyPose3DRequest { [weak self] request, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                print("❌ 3D Pose detection error: \(error)")
-                return
-            }
-            
-            guard let results = request.results as? [VNHumanBodyPose3DObservation] else { 
-                print("⚠️ No 3D pose detection results")
-                return 
-            }
-            
-            print("🔍 Vision detected \(results.count) 3D pose(s)")
-            
-            // Process the first detected pose
-            if let observation = results.first {
-                print("🔍 Processing 3D pose with confidence: \(observation.confidence)")
-                self.processPoseObservation(observation)
-            } else {
-                print("⚠️ No valid 3D pose observations found")
-            }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            self?.captureSession?.stopRunning()
         }
-        
-        // Configure the request for optimal 3D detection
-        poseRequest?.revision = VNDetectHumanBodyPose3DRequestRevision1
-        
-        print("✅ MirrorViewController: Vision framework configured with optimized 3D pose detection")
     }
     
+    // MARK: - Skeleton Overlay Setup
+    
+    private func setupSkeletonOverlay() {
+        skeletonOverlayView = SkeletonOverlayView()
+        guard let skeletonOverlayView = skeletonOverlayView else { return }
+        
+        skeletonOverlayView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(skeletonOverlayView)
+        
+        NSLayoutConstraint.activate([
+            skeletonOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            skeletonOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            skeletonOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            skeletonOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
     
     private func setupFormAnalyzer() {
         formAnalyzer = FormAnalyzer()
-        // Set initial exercise from database
-        if let exercise = Exercise.getExercise(named: currentExercise) {
-            formAnalyzer?.setExercise(exercise)
-            print("✅ MirrorViewController: Exercise set to \(exercise.name) with \(exercise.phases.count) phases")
-        } else {
-            print("❌ MirrorViewController: Exercise '\(currentExercise)' not found in database")
-        }
+        formAnalyzer?.delegate = self
+        
+        // Set the current exercise for form analysis
+        let exercise = Exercise(
+            name: currentExercise,
+            category: .legs,
+            description: "Form analysis for \(currentExercise)",
+            imageName: "\(currentExercise.lowercased())_icon",
+            phases: [],
+            keyJoints: [],
+            safetyNotes: [],
+            bodyTypeConsiderations: []
+        )
+        formAnalyzer?.setExercise(exercise)
+        
+        print("✅ FormAnalyzer setup for exercise: \(currentExercise)")
     }
     
-    private func processPoseObservation(_ observation: VNHumanBodyPose3DObservation) {
-        guard let analyzer = formAnalyzer else { return }
+    // MARK: - Layout
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer?.frame = view.bounds
         
-        // Debug: Print detailed observation information
-        print("🔍 3D Pose Observation Details:")
-        print("  - Confidence: \(observation.confidence)")
-        print("  - Available joints: \(observation.availableJointNames.count)")
+        // Ensure UI elements stay on top after layout changes
+        bringUIElementsToFront()
+    }
+}
+
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+
+extension MirrorViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         
-        // Check observation quality - lower threshold for better detection
-        guard observation.confidence > 0.05 else {
-            // Very low confidence observation, skip processing
-            print("⚠️ MirrorViewController: Very low confidence pose observation: \(observation.confidence)")
-            DispatchQueue.main.async {
-                self.formFeedbackLabel?.text = "Move into camera view for better tracking"
-            }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        
+        // Create Vision request for body pose
+        let request = VNDetectHumanBodyPoseRequest { [weak self] request, error in
+            if let error = error {
+                print("❌ Vision request error: \(error)")
             return
         }
         
-        print("✅ MirrorViewController: Processing pose observation with confidence: \(observation.confidence)")
+            guard let observations = request.results as? [VNHumanBodyPoseObservation] else { return }
         
-        // Update skeleton overlay on main thread for smooth UI
         DispatchQueue.main.async {
-            // For now, use identity matrix since we don't have AR session
-            // In a real AR app, you'd get this from ARSession.currentFrame?.camera.transform
-            self.skeletonOverlayView?.updateSkeleton(observation: observation, cameraTransform: matrix_identity_float4x4)
+                self?.processPoseObservations(observations, pixelBuffer: pixelBuffer)
+            }
         }
         
-        // Analyze form using the analyzer (can be done on background thread)
-        guard let exercise = Exercise.getExercise(named: currentExercise) else {
-            print("❌ MirrorViewController: Exercise '\(currentExercise)' not found for analysis")
+        // Perform the request
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        do {
+            try handler.perform([request])
+        } catch {
+            print("❌ Vision request failed: \(error)")
+        }
+    }
+    
+    private func processPoseObservations(_ observations: [VNHumanBodyPoseObservation], pixelBuffer: CVPixelBuffer) {
+        guard let observation = observations.first else {
+            skeletonOverlayView?.clearSkeleton()
+            print("🔍 No pose observations detected")
             return
         }
         
-        let formAnalysis = analyzer.analyzeForm(observation: observation, exercise: exercise)
+        print("🔍 Pose detected with \(observations.count) observations")
         
-        // Update UI with form analysis results on main thread
-        DispatchQueue.main.async {
-            self.updateFormFeedback(formAnalysis)
-        }
-    }
-    
-    
-    private func updateFormFeedback(_ analysis: FormAnalyzer.FormAnalysis) {
-        // Update form score (convert to percentage)
-        currentFormScore = Int(analysis.score * 100)
-        formScoreLabel?.text = "\(currentFormScore)%"
+        // Update skeleton overlay
+        skeletonOverlayView?.updateSkeleton(observation: observation, pixelBuffer: pixelBuffer)
         
-        // Update rep count (only good reps)
-        currentRepCount = analysis.repCount
-        repCountLabel?.text = "\(currentRepCount)"
+        // Update skeleton with current form data
+        skeletonOverlayView?.updateFormData(score: currentFormScore, feedback: currentFeedback)
         
-        // Update form feedback with comprehensive information
-        var feedbackText = analysis.feedback
-        
-        // Add warnings if any
-        if !analysis.warnings.isEmpty {
-            feedbackText += "\n⚠️ " + analysis.warnings.joined(separator: " ")
-        }
-        
-        // Add tips if form is poor
-        if analysis.quality == .poor || analysis.quality == .dangerous {
-            if !analysis.tips.isEmpty {
-                feedbackText += "\n💡 " + analysis.tips.prefix(2).joined(separator: " ")
-            }
-        }
-        
-        formFeedbackLabel?.text = feedbackText
-        
-        // Update exercise name
-        exerciseInfoLabel?.text = "Exercise: \(currentExercise.capitalized)"
-        
-        // Update colors based on form quality
-        updateLabelColors(quality: analysis.quality)
-        
-        // Debug output
-        print("📊 Form Analysis: Score=\(currentFormScore)%, Reps=\(currentRepCount), Quality=\(analysis.quality.rawValue)")
-    }
-    
-    private func updateLabelColors(quality: FormQuality) {
-        let backgroundColor: UIColor
-        switch quality {
-        case .excellent, .good:
-            backgroundColor = UIColor.systemGreen.withAlphaComponent(0.8)
-        case .acceptable:
-            backgroundColor = UIColor.systemYellow.withAlphaComponent(0.8)
-        case .poor:
-            backgroundColor = UIColor.systemOrange.withAlphaComponent(0.8)
-        case .dangerous:
-            backgroundColor = UIColor.systemRed.withAlphaComponent(0.8)
-        }
-        
-        formScoreLabel?.backgroundColor = backgroundColor
-        repCountLabel?.backgroundColor = backgroundColor
-        formFeedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8) // Always black for readability
-        exerciseInfoLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8) // Always black
-    }
-    
-    /// Update the voice feedback caption for different voice assistant states
-    func updateVoiceFeedback(_ message: String) {
-        DispatchQueue.main.async {
-            self.formFeedbackLabel?.text = message
-            // Reset to default black background for voice feedback
-            self.formFeedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-        }
-    }
-    
-    private func setupGestureRecognizers() {
-        // Add swipe down gesture to exit
-        swipeDownGesture = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeDown))
-        swipeDownGesture?.direction = .down
-        view.addGestureRecognizer(swipeDownGesture!)
-        print("✅ MirrorViewController: Swipe down gesture added - swipe down to exit")
-    }
-    
-    private func createUIOverlays() {
-        // No voice assistant overlay needed - the black caption at bottom handles voice feedback
-        // This keeps the interface hands-free and clean
-        
-        // Create exercise info label (top center) - Black rectangular label with dynamic sizing
-        exerciseInfoLabel = UILabel()
-        exerciseInfoLabel?.text = "Exercise: \(currentExercise.capitalized)"
-        exerciseInfoLabel?.textColor = .white
-        exerciseInfoLabel?.font = UIFont.preferredFont(forTextStyle: .headline) // Dynamic system font
-        exerciseInfoLabel?.textAlignment = .center
-        exerciseInfoLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        exerciseInfoLabel?.layer.cornerRadius = 12 // Slightly more rounded
-        exerciseInfoLabel?.layer.masksToBounds = true
-        exerciseInfoLabel?.numberOfLines = 0 // Allow multiple lines
-        exerciseInfoLabel?.adjustsFontSizeToFitWidth = true // Auto-adjust font size
-        exerciseInfoLabel?.minimumScaleFactor = 0.7 // Minimum scale factor
-        exerciseInfoLabel?.padding = UIEdgeInsets(top: 12, left: 20, bottom: 12, right: 20)
-        
-        if let exerciseLabel = exerciseInfoLabel {
-            view.addSubview(exerciseLabel)
-            exerciseLabel.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                exerciseLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-                exerciseLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor)
-            ])
-        }
-        
-        // Create form score label (top left) - Black rectangular label with dynamic sizing
-        formScoreLabel = UILabel()
-        formScoreLabel?.text = "0%"
-        formScoreLabel?.textColor = .white
-        formScoreLabel?.font = UIFont.preferredFont(forTextStyle: .title2) // Dynamic system font
-        formScoreLabel?.textAlignment = .center
-        formScoreLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8) // Always black
-        formScoreLabel?.layer.cornerRadius = 12 // Slightly more rounded
-        formScoreLabel?.layer.masksToBounds = true
-        formScoreLabel?.adjustsFontSizeToFitWidth = true // Auto-adjust font size
-        formScoreLabel?.minimumScaleFactor = 0.6 // Minimum scale factor
-        formScoreLabel?.padding = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
-        
-        if let scoreLabel = formScoreLabel {
-            view.addSubview(scoreLabel)
-            scoreLabel.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                scoreLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-                scoreLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20)
-            ])
-        }
-        
-        // Create rep count label (top right) - Black rectangular label with dynamic sizing
-        repCountLabel = UILabel()
-        repCountLabel?.text = "0"
-        repCountLabel?.textColor = .white
-        repCountLabel?.font = UIFont.preferredFont(forTextStyle: .title2) // Dynamic system font
-        repCountLabel?.textAlignment = .center
-        repCountLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8) // Always black
-        repCountLabel?.layer.cornerRadius = 12 // Slightly more rounded
-        repCountLabel?.layer.masksToBounds = true
-        repCountLabel?.adjustsFontSizeToFitWidth = true // Auto-adjust font size
-        repCountLabel?.minimumScaleFactor = 0.6 // Minimum scale factor
-        repCountLabel?.padding = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
-        
-        if let repLabel = repCountLabel {
-            view.addSubview(repLabel)
-            repLabel.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                repLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-                repLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20)
-            ])
-        }
-        
-        // Create form feedback label (bottom center) - Long rectangular caption spanning side to side
-        formFeedbackLabel = UILabel()
-        formFeedbackLabel?.text = "Say 'Hey Rex' for help"
-        formFeedbackLabel?.textColor = .white
-        formFeedbackLabel?.font = UIFont.preferredFont(forTextStyle: .body) // Dynamic system font
-        formFeedbackLabel?.textAlignment = .center
-        formFeedbackLabel?.backgroundColor = UIColor.black.withAlphaComponent(0.8)
-        formFeedbackLabel?.layer.cornerRadius = 12 // Slightly more rounded
-        formFeedbackLabel?.layer.masksToBounds = true
-        formFeedbackLabel?.padding = UIEdgeInsets(top: 12, left: 20, bottom: 12, right: 20) // Thick padding for 2 lines of text
-        formFeedbackLabel?.numberOfLines = 0 // Allow multiple lines
-        formFeedbackLabel?.lineBreakMode = .byWordWrapping
-        formFeedbackLabel?.adjustsFontSizeToFitWidth = true // Auto-adjust font size
-        formFeedbackLabel?.minimumScaleFactor = 0.8 // Minimum scale factor
-        
-        if let feedbackLabel = formFeedbackLabel {
-            view.addSubview(feedbackLabel)
-            feedbackLabel.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                feedbackLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-                feedbackLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-                feedbackLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20),
-                feedbackLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20)
-            ])
-        }
-    }
-    
-    private func showCameraErrorAlert() {
-        let alert = UIAlertController(
-            title: "Camera Error",
-            message: "Unable to access front camera. Please check camera permissions.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-            self.dismiss(animated: true)
-        })
-        present(alert, animated: true)
-    }
-    
-    private func showCameraPermissionAlert() {
-        let alert = UIAlertController(
-            title: "Camera Permission Required",
-            message: "This app needs camera access to track your form. Please enable camera permissions in Settings.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Settings", style: .default) { _ in
-            if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(settingsUrl)
-            }
-        })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
-            self.dismiss(animated: true)
-        })
-        present(alert, animated: true)
-    }
-    
-    @objc private func handleSwipeDown() {
-        print("🔄 MirrorViewController: Swipe down detected - dismissing camera screen")
-        dismiss(animated: true)
-    }
-    
-    func setExercise(_ exercise: String) {
-        currentExercise = exercise
-        
-        // Try to get the exercise from the database first
-        if let existingExercise = Exercise.getExercise(named: exercise) {
-            formAnalyzer?.setExercise(existingExercise)
-            exerciseInfoLabel?.text = "Exercise: \(exercise.capitalized)"
-            print("✅ MirrorViewController: Exercise set to \(exercise) from database")
-        } else {
-            // Fallback: create a basic exercise object
-            let exerciseObj = Exercise(
-                name: exercise,
+        // Analyze form using Vision 2D analysis
+        if let formAnalyzer = formAnalyzer {
+            let exercise = Exercise(
+                name: currentExercise,
                 category: .legs,
-                description: "Exercise",
-                imageName: "exercise_image",
+                description: "Form analysis for \(currentExercise)",
+                imageName: "\(currentExercise.lowercased())_icon",
                 phases: [],
                 keyJoints: [],
                 safetyNotes: [],
                 bodyTypeConsiderations: []
             )
-            formAnalyzer?.setExercise(exerciseObj)
-            exerciseInfoLabel?.text = "Exercise: \(exercise.capitalized)"
-            print("✅ MirrorViewController: Exercise set to \(exercise) (fallback)")
+            let _ = formAnalyzer.analyzeVisionForm(observation: observation, exercise: exercise)
+            print("📊 Analyzing pose for \(currentExercise)")
         }
+    }
+}
+
+// MARK: - FormAnalyzerDelegate
+
+extension MirrorViewController: FormAnalyzerDelegate {
+    
+    func formAnalyzer(_ analyzer: FormAnalyzer, didUpdateFormScore score: Int) {
+        // Handle form score updates - score represents how close to perfect (0-100)
+        currentFormScore = max(0, min(100, score)) // Ensure score is between 0-100
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.formScoreLabel?.text = "\(self.currentFormScore)%"
+        }
+        print("📊 Form Score: \(score)")
     }
     
-
-}
-
-// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
-extension MirrorViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { 
-            print("❌ MirrorViewController: Failed to get pixel buffer from sample buffer")
-            return 
+    func formAnalyzer(_ analyzer: FormAnalyzer, didUpdateRepCount count: Int) {
+        // Handle rep counting - only count good reps (form score >= 70)
+        currentRepCount = max(0, count) // Ensure rep count is non-negative
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.repCountLabel?.text = "\(self.currentRepCount)"
         }
-        
-        // Debug: Print pixel buffer information
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        print("🔍 Processing frame: \(width)x\(height)")
-        
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
-        
-        do {
-            // Perform 3D pose detection
-            if let poseRequest = poseRequest {
-                try handler.perform([poseRequest])
-            } else {
-                print("⚠️ MirrorViewController: No pose request available")
-            }
-        } catch {
-            print("❌ MirrorViewController: Failed to perform Vision request: \(error)")
+        print("🔢 Reps: \(count)")
+    }
+    
+    func formAnalyzer(_ analyzer: FormAnalyzer, didProvideFeedback feedback: String) {
+        // Display AI feedback in the caption - handles warnings, tips, and all AI speech
+        currentFeedback = feedback
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.feedbackLabel?.text = feedback
         }
+        print("📝 Form Feedback: \(feedback)")
     }
 }
-
-// MARK: - UILabel Extension for Padding
-extension UILabel {
-    var padding: UIEdgeInsets {
-        get {
-            return UIEdgeInsets.zero
-        }
-        set {
-            let paddingView = UIView()
-            paddingView.translatesAutoresizingMaskIntoConstraints = false
-            self.addSubview(paddingView)
-            
-            NSLayoutConstraint.activate([
-                paddingView.topAnchor.constraint(equalTo: self.topAnchor, constant: newValue.top),
-                paddingView.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -newValue.bottom),
-                paddingView.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: newValue.left),
-                paddingView.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -newValue.right)
-            ])
-        }
-    }
-} 

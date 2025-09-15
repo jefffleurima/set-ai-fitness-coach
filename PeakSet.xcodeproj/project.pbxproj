@@ -18,23 +18,24 @@
 		D80FB3492E6E288E0049475B /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32F2E6E288E0049475B /* SummaryView.swift */; };
 		D80FB34A2E6E288E0049475B /* ExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32B2E6E288E0049475B /* ExerciseView.swift */; };
 		D80FB34B2E6E288E0049475B /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3272E6E288E0049475B /* AppTheme.swift */; };
-		D80FB34C2E6E288E0049475B /* VoiceAssistantOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3302E6E288E0049475B /* VoiceAssistantOverlay.swift */; };
 		D80FB34D2E6E288E0049475B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB33A2E6E288E0049475B /* ContentView.swift */; };
 		D80FB34E2E6E288E0049475B /* AICoachFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3202E6E288E0049475B /* AICoachFeedback.swift */; };
-		D80FB34F2E6E288E0049475B /* MirrorViewWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB31C2E6E288E0049475B /* MirrorViewWrapper.swift */; };
 		D80FB3502E6E288E0049475B /* OpenAIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3232E6E288E0049475B /* OpenAIClient.swift */; };
 		D80FB3512E6E288E0049475B /* HealthDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32C2E6E288E0049475B /* HealthDetailViews.swift */; };
-		D80FB3522E6E288E0049475B /* MirrorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB31B2E6E288E0049475B /* MirrorViewController.swift */; };
-		D80FB3532E6E288E0049475B /* SplashScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32E2E6E288E0049475B /* SplashScreenView.swift */; };
+		D80FB3532E6E288E0049475B /* WelcomeScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */; };
+		D80FB353A2E6E288E0049475B /* TermsAndConditionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32EA2E6E288E0049475B /* TermsAndConditionsView.swift */; };
 		D80FB3542E6E288E0049475B /* VoiceAssistantManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3342E6E288E0049475B /* VoiceAssistantManager.swift */; };
 		D80FB3552E6E288E0049475B /* PeakSetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB33E2E6E288E0049475B /* PeakSetApp.swift */; };
-		D80FB3562E6E288E0049475B /* SkeletonOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB31D2E6E288E0049475B /* SkeletonOverlayView.swift */; };
 		D80FB3572E6E288E0049475B /* Info.template.plist in Resources */ = {isa = PBXBuildFile; fileRef = D80FB33C2E6E288E0049475B /* Info.template.plist */; };
 		D80FB3582E6E288E0049475B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D80FB3252E6E288E0049475B /* Preview Assets.xcassets */; };
-		D80FB3592E6E288E0049475B /* content file in Resources */ = {isa = PBXBuildFile; fileRef = D80FB3392E6E288E0049475B /* content file */; };
 		D80FB35B2E6E288E0049475B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D80FB3362E6E288E0049475B /* Assets.xcassets */; };
+		D80FB35C2E6E288E0049475B /* MirrorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB35D2E6E288E0049475B /* MirrorViewController.swift */; };
+		D80FB35E2E6E288E0049475B /* SkeletonOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB35F2E6E288E0049475B /* SkeletonOverlayView.swift */; };
+		D80FB3602E6E288E0049475B /* MirrorViewWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3612E6E288E0049475B /* MirrorViewWrapper.swift */; };
 		D80FB3722E6E4E890049475B /* Porcupine in Frameworks */ = {isa = PBXBuildFile; productRef = D80FB3712E6E4E890049475B /* Porcupine */; };
 		D80FB3752E6E4E9C0049475B /* ios_voice_processor in Frameworks */ = {isa = PBXBuildFile; productRef = D80FB3742E6E4E9C0049475B /* ios_voice_processor */; };
+		D85C86D82E71FD7900937296 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D85C86D62E71FD7900937296 /* LICENSE.txt */; };
+		D85C86D92E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn in Resources */ = {isa = PBXBuildFile; fileRef = D85C86D52E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,9 +60,6 @@
 		D80FB2B32E6E27200049475B /* PeaksetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeaksetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D80FB2BD2E6E27200049475B /* PeaksetUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeaksetUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D80FB31A2E6E288E0049475B /* FormAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormAnalyzer.swift; sourceTree = "<group>"; };
-		D80FB31B2E6E288E0049475B /* MirrorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewController.swift; sourceTree = "<group>"; };
-		D80FB31C2E6E288E0049475B /* MirrorViewWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewWrapper.swift; sourceTree = "<group>"; };
-		D80FB31D2E6E288E0049475B /* SkeletonOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonOverlayView.swift; sourceTree = "<group>"; };
 		D80FB3202E6E288E0049475B /* AICoachFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICoachFeedback.swift; sourceTree = "<group>"; };
 		D80FB3212E6E288E0049475B /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
 		D80FB3222E6E288E0049475B /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -72,21 +70,25 @@
 		D80FB32B2E6E288E0049475B /* ExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseView.swift; sourceTree = "<group>"; };
 		D80FB32C2E6E288E0049475B /* HealthDetailViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDetailViews.swift; sourceTree = "<group>"; };
 		D80FB32D2E6E288E0049475B /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
-		D80FB32E2E6E288E0049475B /* SplashScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashScreenView.swift; sourceTree = "<group>"; };
+		D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreenView.swift; sourceTree = "<group>"; };
+		D80FB32EA2E6E288E0049475B /* TermsAndConditionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsAndConditionsView.swift; sourceTree = "<group>"; };
 		D80FB32F2E6E288E0049475B /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
-		D80FB3302E6E288E0049475B /* VoiceAssistantOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantOverlay.swift; sourceTree = "<group>"; };
 		D80FB3322E6E288E0049475B /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 		D80FB3332E6E288E0049475B /* ElevenLabsVoiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceManager.swift; sourceTree = "<group>"; };
 		D80FB3342E6E288E0049475B /* VoiceAssistantManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAssistantManager.swift; sourceTree = "<group>"; };
 		D80FB3362E6E288E0049475B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D80FB3372E6E288E0049475B /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		D80FB3382E6E288E0049475B /* Config.template.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.template.swift; sourceTree = "<group>"; };
-		D80FB3392E6E288E0049475B /* content file */ = {isa = PBXFileReference; lastKnownFileType = text; path = "content file"; sourceTree = "<group>"; };
 		D80FB33A2E6E288E0049475B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		D80FB33B2E6E288E0049475B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D80FB33C2E6E288E0049475B /* Info.template.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.template.plist; sourceTree = "<group>"; };
 		D80FB33D2E6E288E0049475B /* PeakSet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PeakSet.entitlements; sourceTree = "<group>"; };
 		D80FB33E2E6E288E0049475B /* PeakSetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeakSetApp.swift; sourceTree = "<group>"; };
+		D80FB35D2E6E288E0049475B /* MirrorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewController.swift; sourceTree = "<group>"; };
+		D80FB35F2E6E288E0049475B /* SkeletonOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonOverlayView.swift; sourceTree = "<group>"; };
+		D80FB3612E6E288E0049475B /* MirrorViewWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewWrapper.swift; sourceTree = "<group>"; };
+		D85C86D52E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Hey-Rex_en_ios_v3_0_0.ppn"; sourceTree = "<group>"; };
+		D85C86D62E71FD7900937296 /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -120,9 +122,9 @@
 			isa = PBXGroup;
 			children = (
 				D80FB31A2E6E288E0049475B /* FormAnalyzer.swift */,
-				D80FB31B2E6E288E0049475B /* MirrorViewController.swift */,
-				D80FB31C2E6E288E0049475B /* MirrorViewWrapper.swift */,
-				D80FB31D2E6E288E0049475B /* SkeletonOverlayView.swift */,
+				D80FB35D2E6E288E0049475B /* MirrorViewController.swift */,
+				D80FB35F2E6E288E0049475B /* SkeletonOverlayView.swift */,
+				D80FB3612E6E288E0049475B /* MirrorViewWrapper.swift */,
 			);
 			path = AR;
 			sourceTree = "<group>";
@@ -168,9 +170,9 @@
 				D80FB32B2E6E288E0049475B /* ExerciseView.swift */,
 				D80FB32C2E6E288E0049475B /* HealthDetailViews.swift */,
 				D80FB32D2E6E288E0049475B /* MessagesView.swift */,
-				D80FB32E2E6E288E0049475B /* SplashScreenView.swift */,
+				D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */,
+				D80FB32EA2E6E288E0049475B /* TermsAndConditionsView.swift */,
 				D80FB32F2E6E288E0049475B /* SummaryView.swift */,
-				D80FB3302E6E288E0049475B /* VoiceAssistantOverlay.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -198,14 +200,23 @@
 				D80FB3362E6E288E0049475B /* Assets.xcassets */,
 				D80FB3372E6E288E0049475B /* Config.swift */,
 				D80FB3382E6E288E0049475B /* Config.template.swift */,
-				D80FB3392E6E288E0049475B /* content file */,
 				D80FB33A2E6E288E0049475B /* ContentView.swift */,
 				D80FB33B2E6E288E0049475B /* Info.plist */,
 				D80FB33C2E6E288E0049475B /* Info.template.plist */,
 				D80FB33D2E6E288E0049475B /* PeakSet.entitlements */,
 				D80FB33E2E6E288E0049475B /* PeakSetApp.swift */,
+				D85C86D72E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0 */,
 			);
 			path = PeakSet;
+			sourceTree = "<group>";
+		};
+		D85C86D72E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0 */ = {
+			isa = PBXGroup;
+			children = (
+				D85C86D52E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn */,
+				D85C86D62E71FD7900937296 /* LICENSE.txt */,
+			);
+			path = "Hey-Rex_en_ios_v3_0_0";
 			sourceTree = "<group>";
 		};
 		D8F4CC122DFB35BC00B9E108 = {
@@ -344,8 +355,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				D80FB3572E6E288E0049475B /* Info.template.plist in Resources */,
+				D85C86D82E71FD7900937296 /* LICENSE.txt in Resources */,
+				D85C86D92E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn in Resources */,
 				D80FB3582E6E288E0049475B /* Preview Assets.xcassets in Resources */,
-				D80FB3592E6E288E0049475B /* content file in Resources */,
 				D80FB35B2E6E288E0049475B /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -382,17 +394,17 @@
 				D80FB3492E6E288E0049475B /* SummaryView.swift in Sources */,
 				D80FB34A2E6E288E0049475B /* ExerciseView.swift in Sources */,
 				D80FB34B2E6E288E0049475B /* AppTheme.swift in Sources */,
-				D80FB34C2E6E288E0049475B /* VoiceAssistantOverlay.swift in Sources */,
 				D80FB34D2E6E288E0049475B /* ContentView.swift in Sources */,
 				D80FB34E2E6E288E0049475B /* AICoachFeedback.swift in Sources */,
-				D80FB34F2E6E288E0049475B /* MirrorViewWrapper.swift in Sources */,
 				D80FB3502E6E288E0049475B /* OpenAIClient.swift in Sources */,
 				D80FB3512E6E288E0049475B /* HealthDetailViews.swift in Sources */,
-				D80FB3522E6E288E0049475B /* MirrorViewController.swift in Sources */,
-				D80FB3532E6E288E0049475B /* SplashScreenView.swift in Sources */,
+				D80FB3532E6E288E0049475B /* WelcomeScreenView.swift in Sources */,
+				D80FB353A2E6E288E0049475B /* TermsAndConditionsView.swift in Sources */,
 				D80FB3542E6E288E0049475B /* VoiceAssistantManager.swift in Sources */,
 				D80FB3552E6E288E0049475B /* PeakSetApp.swift in Sources */,
-				D80FB3562E6E288E0049475B /* SkeletonOverlayView.swift in Sources */,
+				D80FB35C2E6E288E0049475B /* MirrorViewController.swift in Sources */,
+				D80FB35E2E6E288E0049475B /* SkeletonOverlayView.swift in Sources */,
+				D80FB3602E6E288E0049475B /* MirrorViewWrapper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
