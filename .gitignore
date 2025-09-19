@@ -35,3 +35,4 @@ Set/Info.plist
 # Environment variables
 .env
 .env.*
+PeakSet/Info.plist
