@@ -4,6 +4,7 @@ import Combine
 
 /// HealthKitManager for accessing Apple Health data
 class HealthKitManager: ObservableObject {
+    static let shared = HealthKitManager()
     private let healthStore = HKHealthStore()
     
     @Published var isAuthorized = false
@@ -23,7 +24,7 @@ class HealthKitManager: ObservableObject {
         HKObjectType.categoryType(forIdentifier: .mindfulSession)!
     ]
     
-    init() {
+    private init() {
         checkHealthKitAvailability()
         checkAuthorizationStatus()
         
@@ -272,6 +273,9 @@ class HealthKitManager: ObservableObject {
                 
                 let calories = result?.sumQuantity()?.doubleValue(for: HKUnit.kilocalorie()) ?? 0
                 self?.todayCalories = Int(calories)
+                
+                // Notify HealthData that data has been updated
+                NotificationCenter.default.post(name: NSNotification.Name("HealthKitDataUpdated"), object: nil)
             }
         }
         
@@ -299,6 +303,9 @@ class HealthKitManager: ObservableObject {
                 
                 let steps = result?.sumQuantity()?.doubleValue(for: HKUnit.count()) ?? 0
                 self?.todayStepCount = Int(steps)
+                
+                // Notify HealthData that data has been updated
+                NotificationCenter.default.post(name: NSNotification.Name("HealthKitDataUpdated"), object: nil)
             }
         }
         
@@ -453,6 +460,10 @@ class HealthKitManager: ObservableObject {
     
     func getTodayStepDistance() -> Double {
         return todayStepDistance
+    }
+    
+    func checkHealthKitStatus() -> (isAuthorized: Bool, errorMessage: String?) {
+        return (isAuthorized, errorMessage)
     }
     
     func getWeeklyWorkouts() -> Int {

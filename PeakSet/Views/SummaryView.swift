@@ -17,54 +17,13 @@ struct WorkoutSession: Identifiable, Equatable {
         return lhs.id == rhs.id
     }
     
-    static let sampleData: [WorkoutSession] = [
-        WorkoutSession(
-            date: Date(),
-            exercise: Exercise.database[0], // squats
-            reps: 20,
-            sets: 3,
-            formScore: 72,
-            aiTips: ["Only 6 reps achieved perfect form", "Focus on knee alignment"]
-        ),
-        WorkoutSession(
-            date: Date().addingTimeInterval(-86400), // yesterday
-            exercise: Exercise.database[0], // squats
-            reps: 15,
-            sets: 3,
-            formScore: 68,
-            aiTips: ["Knees caving inward", "Work on depth"]
-        ),
-        WorkoutSession(
-            date: Date().addingTimeInterval(-172800), // 2 days ago
-            exercise: Exercise.database[1], // deadlifts
-            reps: 12,
-            sets: 4,
-            formScore: 88,
-            aiTips: ["Great hip hinge!", "Maintain neutral spine"]
-        ),
-        WorkoutSession(
-            date: Date().addingTimeInterval(-259200), // 3 days ago
-            exercise: Exercise.database[0], // squats
-            reps: 18,
-            sets: 3,
-            formScore: 75,
-            aiTips: ["Good improvement", "Keep core engaged"]
-        ),
-        WorkoutSession(
-            date: Date().addingTimeInterval(-345600), // 4 days ago
-            exercise: Exercise.database[1], // deadlifts
-            reps: 10,
-            sets: 3,
-            formScore: 85,
-            aiTips: ["Solid form", "Control the descent"]
-        )
-    ]
+    // Sample data removed - only use real workout sessions from HealthKit
 }
 
 struct SummaryView: View {
-    @StateObject private var healthKitManager = HealthKitManager()
+    @ObservedObject private var healthKitManager = HealthKitManager.shared
     @StateObject private var aiCoachFeedback = AICoachFeedback()
-    @StateObject private var healthData = HealthData()
+    @ObservedObject private var healthData = HealthData.shared
     @State private var showingHealthKitPermission = false
     @State private var showingActivityDetail = false
     @State private var showingStepCountDetail = false
@@ -72,6 +31,7 @@ struct SummaryView: View {
     @State private var showingSessionsDetail = false
     @State private var showingStepDistanceDetail = false
     @State private var animateRings = false
+    @State private var showingProfile = false
     
     var body: some View {
         NavigationView {
@@ -107,10 +67,8 @@ struct SummaryView: View {
                 // Generate AI feedback when workout data is available
                 if !healthKitManager.workoutSessions.isEmpty {
                     aiCoachFeedback.generateFeedback(from: healthKitManager.workoutSessions)
-                } else {
-                    // Generate sample feedback for testing when no real data is available
-                    aiCoachFeedback.generateFeedback(from: WorkoutSession.sampleData)
                 }
+                // No more sample data - only use real workout sessions
             }
             .onChange(of: healthKitManager.workoutSessions) { _, sessions in
                 // Regenerate AI feedback when workout data changes
@@ -128,6 +86,12 @@ struct SummaryView: View {
                     healthKitManager.loadHourlyCalories()
                     healthKitManager.loadHourlyStepDistance()
                     healthKitManager.loadWorkoutData()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("VisionWorkoutCompleted"))) { notification in
+                // Update AI Coach Feedback with vision-based workout data
+                if let sessionData = notification.object as? FormAnalyzer.WorkoutSessionData {
+                    aiCoachFeedback.generateFeedbackFromVisionData(sessionData, previousSessions: healthKitManager.workoutSessions)
                 }
             }
             .sheet(isPresented: $showingActivityDetail) {
@@ -161,8 +125,25 @@ struct SummaryView: View {
                     .foregroundColor(AppTheme.text)
             }
             Spacer()
+            
+            // Profile Icon
+            Button(action: {
+                showingProfile = true
+            }) {
+                Image(systemName: "person.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(AppTheme.textSecondary)
+                    .background(
+                        Circle()
+                            .fill(AppTheme.surface)
+                            .frame(width: 36, height: 36)
+                    )
+            }
         }
         .padding(.top, 10)
+        .sheet(isPresented: $showingProfile) {
+            ProfileView()
+        }
     }
     
     // MARK: - Activity Card (Move Ring Only)
@@ -196,7 +177,7 @@ struct SummaryView: View {
                         
                         // Progress ring
                         Circle()
-                            .trim(from: 0, to: animateRings ? CGFloat(Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)) : 0)
+                            .trim(from: 0, to: animateRings ? CGFloat(healthData.moveGoal > 0 ? Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal) : 0) : 0)
                             .stroke(AppTheme.primary, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                             .frame(width: 80, height: 80)
                             .rotationEffect(.degrees(-90))
@@ -234,7 +215,7 @@ struct SummaryView: View {
                                 .fill(AppTheme.primary)
                                 .frame(width: 6, height: 6)
                             
-                            let progress = Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)
+                            let progress = healthData.moveGoal > 0 ? Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal) : 0
                             Text("\(Int(progress * 100))% complete")
                                 .font(.caption)
                                 .foregroundColor(AppTheme.primary)
@@ -396,14 +377,14 @@ struct SummaryView: View {
             Button(action: {
                 showingStepCountDetail = true
             }) {
-                QuickStatCard(title: "Step Count", value: "\(healthKitManager.getTodayStepCount())", subtitle: "Today", color: .purple)
+                QuickStatCard(title: "Step Count", value: formatNumber(healthKitManager.getTodayStepCount()), subtitle: "Today", color: .purple)
             }
             .buttonStyle(PlainButtonStyle())
             
             Button(action: {
                 showingActiveEnergyDetail = true
             }) {
-                QuickStatCard(title: "Active Energy", value: "\(healthKitManager.getTodayCalories())", subtitle: "CAL", color: .red)
+                QuickStatCard(title: "Active Energy", value: formatNumber(healthKitManager.getTodayCalories()), subtitle: "CAL", color: .red)
             }
             .buttonStyle(PlainButtonStyle())
             
@@ -467,10 +448,19 @@ struct SummaryView: View {
         .frame(height: 30)
     }
     
+    // MARK: - Helper Functions
+    
+    private func formatNumber(_ number: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+    }
+    
     // MARK: - Computed Properties
     private var averageFormScore: Double {
         guard !healthKitManager.workoutSessions.isEmpty else { return 0 }
-        return healthKitManager.workoutSessions.map { Double($0.formScore) }.reduce(0, +) / Double(healthKitManager.workoutSessions.count)
+        let totalScore = healthKitManager.workoutSessions.map { Double($0.formScore) }.reduce(0, +)
+        return totalScore / Double(healthKitManager.workoutSessions.count)
     }
     
     private var workoutsThisWeek: Int {
@@ -499,7 +489,7 @@ struct SummaryView: View {
         let recentAvg = recentSessions.map { $0.formScore }.reduce(0, +) / recentSessions.count
         let olderAvg = olderSessions.map { $0.formScore }.reduce(0, +) / olderSessions.count
         
-        let improvement = ((recentAvg - olderAvg) / olderAvg) * 100
+        let improvement = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0
         return max(0, Int(improvement))
     }
     
@@ -728,40 +718,7 @@ struct WorkoutHistoryCard: View {
 }
 
 // MARK: - Data Models
-
-class HealthData: ObservableObject {
-    @Published var calories: Int = 0
-    @Published var duration: Int = 0
-    @Published var steps: Int = 0
-    @Published var activeEnergy: Int = 0
-    @Published var stepDistance: Double = 0.0
-    
-    // Activity Ring Data - customizable goals
-    @Published var moveGoal: Int = UserDefaults.standard.integer(forKey: "moveGoal") != 0 ? UserDefaults.standard.integer(forKey: "moveGoal") : 140
-    @Published var exerciseGoal: Int = 30
-    @Published var standGoal: Int = 12
-    
-    @Published var exerciseMinutes: Int = 0
-    @Published var standHours: Int = 8
-    
-    var moveProgress: Double {
-        return min(Double(calories) / Double(moveGoal), 1.0)
-    }
-    
-    func updateMoveGoal(_ newGoal: Int) {
-        moveGoal = newGoal
-        UserDefaults.standard.set(newGoal, forKey: "moveGoal")
-    }
-    
-    var exerciseProgress: Double {
-        return min(Double(exerciseMinutes) / Double(exerciseGoal), 1.0)
-    }
-    
-    var standProgress: Double {
-        return min(Double(standHours) / Double(standGoal), 1.0)
-    }
-    
-}
+// HealthData is now in Models/HealthData.swift - comprehensive version with HealthKit integration
 
 // MARK: - Activity Detail View
 
@@ -799,7 +756,7 @@ struct ActivityDetailView: View {
         
         // Get calories for this specific date
         let caloriesForDate = healthKitManager.getCaloriesForDate(targetDate)
-        let progress = Double(caloriesForDate) / Double(healthData.moveGoal)
+        let progress = healthData.moveGoal > 0 ? Double(caloriesForDate) / Double(healthData.moveGoal) : 0
         
         // Debug logging
         let dateFormatter = DateFormatter()
@@ -925,7 +882,7 @@ struct ActivityDetailView: View {
                 
                 // Progress ring with enhanced animation
                 Circle()
-                    .trim(from: 0, to: animateRings ? CGFloat(Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal)) : 0)
+                    .trim(from: 0, to: animateRings ? CGFloat(healthData.moveGoal > 0 ? Double(healthKitManager.getTodayCalories()) / Double(healthData.moveGoal) : 0) : 0)
                     .stroke(
                         LinearGradient(
                             colors: [AppTheme.primary, AppTheme.primary.opacity(0.8)],

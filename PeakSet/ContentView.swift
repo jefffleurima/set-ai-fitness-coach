@@ -17,30 +17,31 @@ struct ContentView: View {
 struct MainAppView: View {
     @StateObject private var aiCoachViewModel = AICoachViewModel()
     @State private var selectedTab = 0
+    @EnvironmentObject var userManager: UserManager
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Exercise View (Main Camera/Workout)
-            ExerciseView()
+            // Summary/Progress (Main tab for data collection app)
+            SummaryView()
                 .tabItem {
-                    Image(systemName: "figure.run")
-                    Text("Exercise")
+                    Image(systemName: "chart.bar.fill")
+                    Text("Summary")
                 }
                 .tag(0)
+            
+            // Exercise View (Camera/Workout)
+            ExerciseView()
+                .tabItem {
+                    Image(systemName: "figure.run.circle.fill")
+                    Text("Exercise")
+                }
+                .tag(1)
             
             // Messages/Coaching History
             MessagesView()
                 .tabItem {
                     Image(systemName: "message.fill")
                     Text("Coaching")
-                }
-                .tag(1)
-            
-            // Summary/Progress
-            SummaryView()
-                .tabItem {
-                    Image(systemName: "chart.bar.fill")
-                    Text("Progress")
                 }
                 .tag(2)
         }

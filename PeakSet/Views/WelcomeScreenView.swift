@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct WelcomeScreenView: View {
+    @StateObject private var userManager = UserManager()
     @State private var isActive = false
+    @State private var showAuthentication = false
     @State private var logoOpacity = 0.0
     @State private var logoScale = 0.5
     @State private var logoRotation = 0.0
@@ -15,9 +17,79 @@ struct WelcomeScreenView: View {
     @State private var hasAcceptedTerms = false
 
     var body: some View {
-        if isActive {
-            MainAppView()
-        } else {
+        Group {
+            switch userManager.authenticationState {
+            case .loading:
+                LoadingView()
+            case .signedIn:
+                MainAppView()
+                    .environmentObject(userManager)
+            case .signedOut, .error:
+                if showAuthentication {
+                    AuthenticationView(userManager: userManager, isPresented: $showAuthentication)
+                } else {
+                    WelcomeContentView(
+                        showAuthentication: $showAuthentication,
+                        hasAcceptedTerms: $hasAcceptedTerms,
+                        showTermsAndConditions: $showTermsAndConditions,
+                        logoOpacity: $logoOpacity,
+                        logoScale: $logoScale,
+                        logoRotation: $logoRotation,
+                        textOpacity: $textOpacity,
+                        textOffset: $textOffset,
+                        buttonOpacity: $buttonOpacity,
+                        buttonScale: $buttonScale,
+                        gradientStart: $gradientStart,
+                        gradientEnd: $gradientEnd
+                    )
+                }
+            }
+        }
+        .sheet(isPresented: $showTermsAndConditions) {
+            TermsAndConditionsView(isPresented: $showTermsAndConditions, hasAcceptedTerms: $hasAcceptedTerms)
+        }
+    }
+}
+
+// MARK: - Loading View
+struct LoadingView: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(gradient: Gradient(colors: [AppTheme.background, AppTheme.surface]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+            
+            VStack {
+                Image(systemName: "bolt.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(AppTheme.primary)
+                    .scaleEffect(1.2)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: UUID())
+                
+                Text("Loading...")
+                    .font(.title2)
+                    .foregroundColor(AppTheme.text)
+                    .padding(.top, 20)
+            }
+        }
+    }
+}
+
+// MARK: - Welcome Content View
+struct WelcomeContentView: View {
+    @Binding var showAuthentication: Bool
+    @Binding var hasAcceptedTerms: Bool
+    @Binding var showTermsAndConditions: Bool
+    @Binding var logoOpacity: Double
+    @Binding var logoScale: Double
+    @Binding var logoRotation: Double
+    @Binding var textOpacity: Double
+    @Binding var textOffset: CGFloat
+    @Binding var buttonOpacity: Double
+    @Binding var buttonScale: Double
+    @Binding var gradientStart: UnitPoint
+    @Binding var gradientEnd: UnitPoint
+    
+    var body: some View {
             ZStack {
                 LinearGradient(gradient: Gradient(colors: [AppTheme.background, AppTheme.surface]), startPoint: gradientStart, endPoint: gradientEnd)
                     .ignoresSafeArea()
@@ -123,7 +195,7 @@ struct WelcomeScreenView: View {
                     Button(action: {
                         if hasAcceptedTerms {
                             withAnimation {
-                                isActive = true
+                                showAuthentication = true
                             }
                         }
                     }) {
@@ -154,11 +226,7 @@ struct WelcomeScreenView: View {
                         self.gradientEnd = UnitPoint(x: 0, y: 0)
                     }
                 }
-                .sheet(isPresented: $showTermsAndConditions) {
-                    TermsAndConditionsView(isPresented: $showTermsAndConditions, hasAcceptedTerms: $hasAcceptedTerms)
-                }
             }
-        }
     }
 }
 

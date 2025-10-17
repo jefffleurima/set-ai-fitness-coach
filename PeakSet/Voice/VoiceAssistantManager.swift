@@ -4,7 +4,7 @@ import Speech
 import AVFoundation
 
 // MARK: - Premium Voice AI System
-enum CoachingContext {
+enum ConversationContext {
     case exerciseSetup
     case activeForm
     case restPeriod
@@ -50,20 +50,22 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private var audioEngine = AVAudioEngine()
     private let synthesizer = AVSpeechSynthesizer()
     private var speechTimeoutTimer: Timer?
-    private let speechPauseTimeout: TimeInterval = 0.5 // Reduced for more responsive listening
+    private let speechPauseTimeout: TimeInterval = 2.0 // Wait 2 seconds after speech stops before processing
     private var conversationTimeoutTimer: Timer?
-    private let conversationTimeout: TimeInterval = 10.0  // Give users more time to speak
-    private let postWakeWordDelay: TimeInterval = 1.0  // Reduced delay for faster response
-    private let postResponseListeningTime: TimeInterval = 8.0  // Listen longer after response for natural conversation
+    private let conversationTimeout: TimeInterval = 15.0  // Give users more time to speak
+    private let postWakeWordDelay: TimeInterval = 0.2  // Faster wake word response
+    private let postResponseListeningTime: TimeInterval = 10.0  // Still generous listening time
     private var isInConversation = false
     private var isInCheckInPhase = false // Track if we're in the check-in phase
 
     private var workoutContext: [String: Any] = [:]
     private var isProcessingSpeech = false // Prevent multiple simultaneous processing
     private var isProcessingWakeWord = false // Prevent duplicate wake word processing
+    private var hasLoggedSpeaking = false // Prevent excessive timeout cancellation logs
+    private var isAboutToRespond = false // Track if AI is about to respond (can be interrupted)
     
     // MARK: - Premium Voice AI Properties
-    private var currentContext: CoachingContext = .generalChat
+    private var currentContext: ConversationContext = .generalChat
     private var currentPersonality: CoachingPersonality
     
     // Premium voice characteristics - Humanized female voices to match Rex
@@ -149,6 +151,15 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         
         print("🎤 [PRIORITY] ElevenLabs Rex voice (PREMIUM) speaking with \(targetStyle) style: \(text)")
         
+        // Notify MirrorViewController to prepare live caption if text is long
+        if text.count > 80 {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("DisplayLiveCaptionNotification"),
+                object: nil,
+                userInfo: ["text": text]
+            )
+        }
+        
         // Try ElevenLabs first, but fallback quickly if it fails
         ElevenLabsVoiceManager.shared.speak(text, style: targetStyle) { [weak self] success in
             if success {
@@ -159,6 +170,36 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 self?.fallbackToAppleTTS(text, style: targetStyle)
             }
         }
+    }
+    
+    // MARK: - Workout Coaching (Short Cues)
+    
+    /// Specialized method for workout cues - optimized for short, quick feedback
+    func speakWorkoutCue(_ cue: String) {
+        // For short cues (< 20 chars), use direct ElevenLabs call with optimized settings
+        print("🏋️ [WORKOUT CUE] Speaking: '\(cue)'")
+        
+        // Use ElevenLabs with workout-optimized settings
+        ElevenLabsVoiceManager.shared.speakWorkoutCue(cue) { [weak self] success in
+            if !success {
+                // Quick fallback to Apple TTS for reliability
+                print("⚠️ [FALLBACK] Using Apple TTS for workout cue: '\(cue)'")
+                self?.speakWorkoutCueFallback(cue)
+            }
+        }
+    }
+    
+    private func speakWorkoutCueFallback(_ cue: String) {
+        // Ultra-fast Apple TTS for workout cues
+        let utterance = AVSpeechUtterance(string: cue)
+        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.rate = 0.6  // Faster for quick cues
+        utterance.pitchMultiplier = 1.2  // Higher pitch for energy
+        utterance.volume = 1.0
+        utterance.preUtteranceDelay = 0  // No delay
+        utterance.postUtteranceDelay = 0  // No delay
+        
+        synthesizer.speak(utterance)
     }
     
     // MARK: - Fallback to Apple TTS
@@ -249,21 +290,53 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     private func processWithOpenAI(_ userInput: String) {
         print("[OpenAI] Processing: \(userInput)")
         
+        // Add user message to conversation memory
+        let userMessage = ChatMessage(
+            id: UUID(),
+            text: userInput,
+            isUser: true,
+            type: .response,
+            timestamp: Date(),
+            context: nil
+        )
+        ConversationMemory.shared.addMessage(userMessage)
+        
+        // Check if user is telling us their name
+        updateUserProfileFromConversation(userInput: userInput, aiResponse: "")
+        
         // Determine coaching style based on user input and context
         let coachingStyle = determineCoachingStyle(for: userInput)
         print("[Context] Using \(coachingStyle) style for: \(userInput)")
         
-        // Use the unified OpenAI client
-        OpenAIClient.shared.sendMessage(prompt: userInput) { [weak self] result in
+        // Create user data context with real data
+        let userData = createUserDataContext()
+        
+        // Use the unified OpenAI client with real user data
+        OpenAIClient.shared.sendMessage(prompt: userInput, context: nil, userData: userData) { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let response):
                     print("[OpenAI] ✅ Response: \(response)")
                     
+                    // Add AI response to conversation memory
+                    let aiMessage = ChatMessage(
+                        id: UUID(),
+                        text: response,
+                        isUser: false,
+                        type: .response,
+                        timestamp: Date(),
+                        context: nil
+                    )
+                    ConversationMemory.shared.addMessage(aiMessage)
+                    
+                    // Update user profile based on conversation
+                    self?.updateUserProfileFromConversation(userInput: userInput, aiResponse: response)
+                    
                     // Update UI
                     self?.feedbackMessage = response
                     
                     // Speak the response using the determined coaching style
+                    // speakWithPersonality will automatically send live caption notification if needed
                     self?.speakWithPersonality(response, style: coachingStyle)
                     
                     // Clear message after speaking
@@ -279,6 +352,255 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                 }
             }
         }
+    }
+    
+    // MARK: - User Data Context Creation
+    private func createUserDataContext() -> UserDataContext {
+        // Get comprehensive user profile from UserDefaults (same as UI)
+        let userProfileManager = UserProfileManager.shared
+        var comprehensiveProfile = userProfileManager.profile
+        
+        // Override with actual user data from UserDefaults (same as ProfileView)
+        comprehensiveProfile.personalInfo.name = UserDefaults.standard.string(forKey: "userName") ?? ""
+        comprehensiveProfile.personalInfo.age = UserDefaults.standard.integer(forKey: "userAge") == 0 ? 25 : UserDefaults.standard.integer(forKey: "userAge")
+        comprehensiveProfile.personalInfo.height = UserDefaults.standard.double(forKey: "userHeight") == 0 ? 170.0 : UserDefaults.standard.double(forKey: "userHeight")
+        comprehensiveProfile.personalInfo.weight = UserDefaults.standard.double(forKey: "userWeight") == 0 ? 70.0 : UserDefaults.standard.double(forKey: "userWeight")
+        
+        // Get fitness level from UserDefaults
+        let fitnessLevelString = UserDefaults.standard.string(forKey: "fitnessLevel") ?? "Intermediate"
+        comprehensiveProfile.fitnessProfile.fitnessLevel = FitnessProfile.FitnessLevel(rawValue: fitnessLevelString.lowercased()) ?? .beginner
+        
+        // Get primary goal from UserDefaults and map to correct enum value
+        let primaryGoalString = UserDefaults.standard.string(forKey: "primaryGoal") ?? "Strength"
+        switch primaryGoalString {
+        case "Strength":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .strength
+        case "Muscle Building":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .muscleGain
+        case "Endurance":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .endurance
+        case "Weight Loss":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .weightLoss
+        default:
+            comprehensiveProfile.fitnessProfile.primaryGoal = .strength
+        }
+        
+        // Get experience level from UserDefaults
+        let experienceString = UserDefaults.standard.string(forKey: "experience") ?? "Intermediate"
+        comprehensiveProfile.fitnessProfile.experience = FitnessProfile.Experience(rawValue: experienceString.lowercased()) ?? .beginner
+        
+        // Get workout frequency from UserDefaults
+        let frequencyString = UserDefaults.standard.string(forKey: "workoutFrequency") ?? "3x per week"
+        switch frequencyString {
+        case "1x per week", "2x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .light
+        case "3x per week", "4x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .moderate
+        case "5x per week", "6x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .intense
+        case "7x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .elite
+        default:
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .moderate
+        }
+        
+        // Get health data from HealthData bridge
+        let healthData = HealthData.shared
+        
+        // Get conversation history with context
+        let conversationHistory = ConversationMemory.shared.getRecentMessages(limit: 20)
+        
+        // Get recent workout sessions
+        let recentWorkouts = healthData.recentWorkouts.map { session in
+            OpenAIClient.WorkoutSession(
+                date: session.date,
+                exercises: [session.exerciseName],
+                duration: session.duration,
+                intensity: session.formScore / 10, // Convert form score to intensity 1-10
+                notes: session.notes.isEmpty ? "Form score: \(session.formScore)%" : session.notes
+            )
+        }
+        
+        // Get additional HealthKit data
+        let healthKitManager = HealthKitManager.shared
+        
+        // Get AI coach feedback if available
+        let aiCoachFeedback = AICoachFeedback()
+        
+        // Create enhanced UserDataContext with comprehensive data
+        let userDataContext = UserDataContext(
+            profile: comprehensiveProfile,
+            healthData: healthData,
+            workoutSessions: recentWorkouts,
+            todayCalories: healthKitManager.getTodayCalories(), // Use direct HealthKit data
+            todaySteps: healthKitManager.getTodayStepCount(), // Use direct HealthKit data
+            todayDistance: healthKitManager.getTodayStepDistance(), // Add distance data
+            moveGoal: healthData.moveGoal,
+            averageFormScore: healthKitManager.getAverageFormScore(), // Add form score data
+            aiCoachFeedback: aiCoachFeedback.feedback, // Add AI coach insights
+            conversationHistory: conversationHistory
+        )
+        
+        // Debug: Print the actual data being sent to AI
+        print("🤖 AI DATA CONTEXT:")
+        print("   - Today's Calories: \(userDataContext.todayCalories)")
+        print("   - Today's Steps: \(userDataContext.todaySteps)")
+        print("   - Today's Distance: \(userDataContext.todayDistance)")
+        print("   - Move Goal: \(userDataContext.moveGoal)")
+        print("   - Average Form Score: \(userDataContext.averageFormScore)")
+        print("   - Health Data Available: \(userDataContext.healthData != nil)")
+        print("   - Workout Sessions: \(userDataContext.workoutSessions.count)")
+        
+        return userDataContext
+    }
+    
+    // MARK: - Profile Updates from Conversations
+    
+    private func updateUserProfileFromConversation(userInput: String, aiResponse: String) {
+        let userProfileManager = UserProfileManager.shared
+        let input = userInput.lowercased()
+        
+        // Check if user is telling us their name
+        if input.contains("my name is") || input.contains("i'm ") || input.contains("i am ") || input.contains("call me") {
+            let namePatterns = [
+                "my name is (\\w+)",
+                "i'm (\\w+)",
+                "i am (\\w+)",
+                "call me (\\w+)"
+            ]
+            
+            for pattern in namePatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let range = NSRange(location: 0, length: userInput.utf16.count)
+                    if let match = regex.firstMatch(in: userInput, options: [], range: range) {
+                        if let nameRange = Range(match.range(at: 1), in: userInput) {
+                            let name = String(userInput[nameRange]).capitalized
+                            
+                            // Update local profile
+                            userProfileManager.updateUserName(name)
+                            print("👤 VoiceAssistantManager: Detected and updated user name to '\(name)'")
+                            
+                            // Save to Supabase immediately
+                            Task {
+                                do {
+                                    let profile = userProfileManager.profile.personalInfo
+                                    let fitnessProfile = userProfileManager.profile.fitnessProfile
+                                    
+                                    // Convert types to match Supabase UserProfile
+                                    let unitSystem: UnitSystem = .metric // Default to metric
+                                    let fitnessLevel: FitnessLevel = {
+                                        switch fitnessProfile.experience {
+                                        case .beginner: return .beginner
+                                        case .intermediate: return .intermediate
+                                        case .advanced: return .advanced
+                                        }
+                                    }()
+                                    
+                                    let primaryGoal: FitnessGoal = {
+                                        switch fitnessProfile.primaryGoal {
+                                        case .weightLoss: return .weightLoss
+                                        case .muscleGain: return .muscle
+                                        case .strength: return .strength
+                                        case .endurance: return .endurance
+                                        case .flexibility: return .general
+                                        case .generalFitness: return .general
+                                        case .sportsPerformance: return .general
+                                        case .rehabilitation: return .general
+                                        }
+                                    }()
+                                    
+                                    let experience: ExperienceLevel = {
+                                        switch fitnessProfile.experience {
+                                        case .beginner: return .beginner
+                                        case .intermediate: return .intermediate
+                                        case .advanced: return .advanced
+                                        }
+                                    }()
+                                    
+                                    let workoutFrequency: WorkoutFrequency = {
+                                        switch fitnessProfile.workoutFrequency {
+                                        case .light: return .twoTimesPerWeek
+                                        case .moderate: return .threeTimesPerWeek
+                                        case .intense: return .fivePlusTimesPerWeek
+                                        case .elite: return .fivePlusTimesPerWeek
+                                        }
+                                    }()
+                                    
+                                    let userProfile = SupabaseUserProfile(
+                                        name: name,
+                                        email: "", // No email from Sign in with Apple
+                                        height: profile.height,
+                                        weight: profile.weight,
+                                        age: profile.age,
+                                        unitSystem: unitSystem,
+                                        fitnessLevel: fitnessLevel,
+                                        primaryGoal: primaryGoal,
+                                        experience: experience,
+                                        workoutFrequency: workoutFrequency,
+                                        notificationsEnabled: true,
+                                        dataSharingEnabled: true,
+                                        moveGoal: HealthData.shared.moveGoal,
+                                        createdAt: Date()
+                                    )
+                                    
+                                    try await SupabaseManager.shared.saveUserProfile(userProfile)
+                                    print("✅ VoiceAssistantManager: User name '\(name)' saved to Supabase!")
+                                } catch {
+                                    print("❌ VoiceAssistantManager: Failed to save name to Supabase: \(error)")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Learn user preferences from conversation
+        if input.contains("motivate") || input.contains("pump") || input.contains("energy") {
+            var preferences = userProfileManager.profile.preferences
+            preferences.coachStyle = .motivational
+            userProfileManager.profile.preferences = preferences
+            userProfileManager.saveProfile()
+            print("🧠 VoiceAssistantManager: Learned user prefers motivational coaching")
+        }
+        
+        if input.contains("technical") || input.contains("form") || input.contains("technique") {
+            var preferences = userProfileManager.profile.preferences
+            preferences.coachStyle = .technical
+            userProfileManager.profile.preferences = preferences
+            userProfileManager.saveProfile()
+            print("🧠 VoiceAssistantManager: Learned user prefers technical coaching")
+        }
+        
+        // Learn user goals
+        if input.contains("lose weight") || input.contains("weight loss") {
+            var fitnessProfile = userProfileManager.profile.fitnessProfile
+            fitnessProfile.primaryGoal = .weightLoss
+            userProfileManager.profile.fitnessProfile = fitnessProfile
+            userProfileManager.saveProfile()
+            print("🧠 VoiceAssistantManager: Learned user goal: weight loss")
+        }
+        
+        if input.contains("gain muscle") || input.contains("muscle gain") {
+            var fitnessProfile = userProfileManager.profile.fitnessProfile
+            fitnessProfile.primaryGoal = .muscleGain
+            userProfileManager.profile.fitnessProfile = fitnessProfile
+            userProfileManager.saveProfile()
+            print("🧠 VoiceAssistantManager: Learned user goal: muscle gain")
+        }
+        
+        // Learn user interests
+        if input.contains("nutrition") || input.contains("food") || input.contains("meal") {
+            var preferences = userProfileManager.profile.preferences
+            preferences.primaryInterest = .nutrition
+            userProfileManager.profile.preferences = preferences
+            userProfileManager.saveProfile()
+            print("🧠 VoiceAssistantManager: Learned user interest: nutrition")
+        }
+        
+        // Update last interaction
+        userProfileManager.profile.lastUpdated = Date()
+        userProfileManager.saveProfile()
     }
     
     // MARK: - Smart Context Detection
@@ -328,16 +650,11 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             }
         }
         
-        // Check time of day for personalized greeting
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 {
-            return "Good morning! I'm Rex, your AI fitness coach. What can I help you with today?"
-        } else if hour < 17 {
-            return "Hey there! I'm Rex, your fitness coach. What do you need help with?"
-        } else {
-            return "Good evening! I'm Rex, your AI fitness coach. What can I help you with tonight?"
-        }
+        // Use personalized greeting from UserProfileManager
+        let userProfileManager = UserProfileManager.shared
+        return userProfileManager.getPersonalizedGreeting()
     }
+    
     
     // MARK: - Wake Word
     func startWakeWordDetection() {
@@ -371,12 +688,12 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                         print("[Wake Word] Processing wake word detection...")
                         
                         if self.isInConversation == false {
-                            print("[Wake Word] Starting new conversation with 1-second delay...")
-                            self.feedbackMessage = "Hey Rex heard... (waiting 1 second)"
+                            print("[Wake Word] Starting new conversation with 0.2-second delay...")
+                            self.feedbackMessage = "Hey Rex heard... (waiting 0.2 second)"
                             
-                            // Wait 1 second before responding (in case user is still speaking)
+                            // Wait briefly before responding (in case user is still speaking)
                             DispatchQueue.main.asyncAfter(deadline: .now() + (self.postWakeWordDelay)) {
-                                print("[Wake Word] 1-second delay complete, now responding...")
+                                print("[Wake Word] 0.2-second delay complete, now responding...")
                                 
                                 // Mark that we're in a conversation FIRST
                                 self.isInConversation = true
@@ -422,6 +739,8 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     // MARK: - Conversation
     private func startConversation() {
         isInConversation = true
+        hasLoggedSpeaking = false // Reset logging flag for new conversation
+        isAboutToRespond = false // Reset interruption flag
         resetConversationTimeout()
         startSpeechRecognition()
     }
@@ -465,9 +784,9 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             self.feedbackMessage = "Listening for your response..."
             self.startSpeechRecognition()
             
-            // Set timer to end conversation after the full listening period
-            self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.postResponseListeningTime, repeats: false) { _ in
-                print("[Conversation] Final \(self.postResponseListeningTime)-second window expired, ending conversation")
+            // Set a shorter timer to end conversation after check-in
+            self.conversationTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { _ in
+                print("[Conversation] Check-in period expired, ending conversation")
                 self.endConversation()
             }
         }
@@ -486,7 +805,7 @@ class VoiceAssistantManager: NSObject, ObservableObject {
     
     private func initializeSpeechRecognizer() {
         guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")) else { return }
-        recognizer.defaultTaskHint = .dictation
+        recognizer.defaultTaskHint = .search // Better for conversational speech
         self.speechRecognizer = recognizer
     }
     
@@ -505,8 +824,8 @@ class VoiceAssistantManager: NSObject, ObservableObject {
         print("[Speech] Starting speech recognition...")
         stopSpeechRecognition()
         
-        // Add delay to ensure audio session is ready after ElevenLabs playback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Shorter delay for faster response
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             do {
                 // Use centralized audio session manager
                 try AudioSessionManager.shared.configureForRecording()
@@ -566,32 +885,61 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             return
         }
         
-        // Disable on-device recognition to avoid errors
-        recognitionRequest.requiresOnDeviceRecognition = false
+        // Enable on-device recognition for better performance
+        recognitionRequest.requiresOnDeviceRecognition = true
         recognitionRequest.shouldReportPartialResults = true
-        recognitionRequest.taskHint = .dictation
+        recognitionRequest.taskHint = .search // Better for conversational speech
         
         var lastTranscription = ""
         var hasReceivedPartialResult = false
+        var consecutiveEmptyResults = 0
+        var lastNonEmptyResult = ""
+        
+        // Add a fallback timeout in case no results are received at all
+        // This handles cases where audio is being captured but not transcribed
+        let fallbackTimeout = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            print("[Speech] ⚠️ Fallback timeout triggered - no transcription results received")
+            DispatchQueue.main.async {
+                self.isListening = false
+                self.isProcessingSpeech = false
+                self.stopSpeechRecognition()
+                
+                if !lastNonEmptyResult.isEmpty {
+                    print("[Speech] Using last captured text: '\(lastNonEmptyResult)'")
+                    self.feedbackMessage = "Processing..."
+                    self.processWithOpenAI(lastNonEmptyResult)
+                } else {
+                    print("[Speech] No speech captured, ending conversation")
+                    self.feedbackMessage = "I didn't hear anything. Say 'Hey Rex' to try again."
+                    self.endConversation()
+                }
+            }
+        }
         
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            guard let self = self else { return }
+            guard let self = self else {
+                fallbackTimeout.invalidate()
+                return
+            }
             
             if let error = error {
-                // Only log non-common errors
-                if !error.localizedDescription.contains("No speech detected") && 
-                   !error.localizedDescription.contains("kAFAssistantErrorDomain") {
-                    print("[Speech] Recognition error: \(error.localizedDescription)")
-                }
+                print("[Speech] Recognition error: \(error.localizedDescription)")
+                fallbackTimeout.invalidate()  // Cancel fallback timeout on error
                 
                 DispatchQueue.main.async {
                     self.isListening = false
                     self.isProcessingSpeech = false
                     self.stopSpeechRecognition()
                     
-                    // Only show error message for significant errors
-                    if !error.localizedDescription.contains("No speech detected") {
-                        self.feedbackMessage = "Try again"
+                    // Provide more helpful feedback based on error type
+                    if error.localizedDescription.contains("No speech detected") {
+                        // Don't show error for "No speech detected" - it's normal when user stops talking
+                        print("[Speech] No speech detected - normal end of speech")
+                    } else if error.localizedDescription.contains("kAFAssistantErrorDomain") {
+                        self.feedbackMessage = "Audio issue. Try again in a moment."
+                    } else {
+                        self.feedbackMessage = "Speech recognition error. Try again."
                     }
                 }
                 return
@@ -599,21 +947,63 @@ class VoiceAssistantManager: NSObject, ObservableObject {
             
             if let result = result {
                 let text = result.bestTranscription.formattedString
+                
                 if !text.isEmpty {
                     lastTranscription = text
+                    lastNonEmptyResult = text
                     hasReceivedPartialResult = true
+                    consecutiveEmptyResults = 0 // Reset empty results counter
+                    fallbackTimeout.invalidate()  // Cancel fallback timeout when we get speech
+                    print("[Speech] 📝 Transcription: '\(text)' (partial: \(!result.isFinal))")
                     
-                    // Cancel conversation timeout since user is speaking
-                    self.conversationTimeoutTimer?.invalidate()
-                    print("[Conversation] User started speaking, conversation timeout cancelled")
+                    // If AI is about to respond and user starts speaking again, cancel the response
+                    if self.isAboutToRespond {
+                        self.isAboutToRespond = false
+                        self.speechTimeoutTimer?.invalidate()
+                        print("[Conversation] User interrupted AI response - continuing to listen")
+                    }
+                    
+                    // Cancel conversation timeout since user is speaking (but only log once per session)
+                    if !self.hasLoggedSpeaking {
+                        self.conversationTimeoutTimer?.invalidate()
+                        print("[Conversation] User started speaking, conversation timeout cancelled")
+                        self.hasLoggedSpeaking = true
+                    }
+                    
+                    // Set/reset speech timeout whenever we get new speech
+                    // This handles cases where we never get a final result
+                    self.speechTimeoutTimer?.invalidate()
+                    self.speechTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.speechPauseTimeout, repeats: false) { _ in
+                        DispatchQueue.main.async {
+                            print("[Speech] Speech pause timeout - processing last transcription")
+                            self.isListening = false
+                            self.isProcessingSpeech = false
+                            self.stopSpeechRecognition()
+                            fallbackTimeout.invalidate()  // Cancel fallback timeout
+                            
+                            // Use the last non-empty result we captured
+                            if !lastNonEmptyResult.isEmpty {
+                                self.feedbackMessage = "Processing..."
+                                self.processWithOpenAI(lastNonEmptyResult)
+                            } else {
+                                self.feedbackMessage = "I didn't catch that. Could you repeat?"
+                            }
+                        }
+                    }
+                } else {
+                    // Track consecutive empty results to detect actual speech completion
+                    consecutiveEmptyResults += 1
                 }
                 
                 if result.isFinal {
                     self.speechTimeoutTimer?.invalidate()
+                    fallbackTimeout.invalidate()  // Cancel fallback timeout
                     DispatchQueue.main.async {
                         self.isListening = false
                         self.isProcessingSpeech = false
                         self.stopSpeechRecognition()
+                        
+                        print("[Speech] Final result received: '\(text)'")
                         
                         if !text.isEmpty {
                             self.feedbackMessage = "Processing..."
@@ -633,27 +1023,10 @@ class VoiceAssistantManager: NSObject, ObservableObject {
                             }
                             self.processWithOpenAI(lastTranscription)
                         } else {
-                            self.feedbackMessage = "Didn't catch that. Try again."
+                            self.feedbackMessage = "I didn't catch that. Could you repeat?"
                         }
                     }
                     return
-                }
-                
-                // Reset timeout timer for partial results
-                self.speechTimeoutTimer?.invalidate()
-                self.speechTimeoutTimer = Timer.scheduledTimer(withTimeInterval: self.speechPauseTimeout, repeats: false) { _ in
-                    DispatchQueue.main.async {
-                        self.isListening = false
-                        self.isProcessingSpeech = false
-                        self.stopSpeechRecognition()
-                        
-                        if !lastTranscription.isEmpty {
-                            self.feedbackMessage = "Processing..."
-                            self.processWithOpenAI(lastTranscription)
-                        } else {
-                            self.feedbackMessage = "Didn't catch that. Try again."
-                        }
-                    }
                 }
             }
         }
@@ -897,8 +1270,8 @@ extension VoiceAssistantManager {
     @objc private func handleElevenLabsSpeechFinished() {
         print("[Conversation] ElevenLabs speech finished, starting conversation flow...")
         
-        // Start the conversation flow with longer delay to ensure audio session is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // Start the conversation flow with minimal delay for faster response
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.aiResponse = nil
             if self.isInConversation {
                 self.feedbackMessage = "Listening for your response..."
@@ -924,8 +1297,8 @@ extension VoiceAssistantManager: AVSpeechSynthesizerDelegate {
         print("[Audio] Finished speaking: \(utterance.speechString)")
         print("[Conversation] Starting \(postResponseListeningTime)-second listening window for follow-up...")
         
-        // After speaking, start listening with proper delay for audio session setup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // After speaking, start listening with minimal delay for faster response
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.aiResponse = nil
             if self.isInConversation {
                 self.feedbackMessage = "Listening for your response..."

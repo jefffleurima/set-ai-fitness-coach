@@ -78,6 +78,32 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
         attemptSpeechWithRetry(text: text, style: style, attempt: 1, maxAttempts: 2, completion: completion)
     }
     
+    /// Optimized method for short workout cues - faster, single attempt
+    func speakWorkoutCue(_ cue: String, completion: @escaping (Bool) -> Void) {
+        guard !apiKey.isEmpty else {
+            print("❌ ElevenLabsVoiceManager: No API key available for workout cue")
+            completion(false)
+            return
+        }
+        
+        print("🏋️ [WORKOUT] ElevenLabs generating cue: '\(cue)'")
+        
+        // Single attempt for workout cues (need speed over retries)
+        Task {
+            do {
+                let audioData = try await self.generateSpeechWithRetry(text: cue, style: .motivational, attempt: 1)
+                print("✅ [WORKOUT] ElevenLabs generated cue audio (\(audioData.count) bytes)")
+                
+                await MainActor.run {
+                    self.playAudioWithRetry(audioData, attempt: 1, completion: completion)
+                }
+            } catch {
+                print("❌ [WORKOUT] ElevenLabs cue generation failed: \(error)")
+                completion(false)
+            }
+        }
+    }
+    
     /// Aggressive retry logic for ElevenLabs premium voice - last resort before Apple TTS
     private func attemptSpeechWithRetry(text: String, style: CoachingStyle, attempt: Int, maxAttempts: Int, completion: @escaping (Bool) -> Void) {
         let delayInterval = TimeInterval(attempt - 1) * 0.5 // Exponential backoff: 0s, 0.5s, 1s, 1.5s
@@ -192,6 +218,16 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
             let success = self.audioPlayer?.play() ?? false
             if success {
                 print("🎤 [PREMIUM] ElevenLabs Rex voice playing successfully on attempt \(attempt)")
+                
+                // Notify that audio playback has actually started (for caption sync)
+                // Include audio duration so captions can sync perfectly
+                let audioDuration = self.audioPlayer?.duration ?? 0.0
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ElevenLabsPlaybackStarted"),
+                    object: nil,
+                    userInfo: ["duration": audioDuration]
+                )
+                
                 return
             } else {
                 print("❌ [PREMIUM] ElevenLabs playback failed to start on attempt \(attempt)")
@@ -248,6 +284,14 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
             let success = self.audioPlayer?.play() ?? false
             if success {
                 print("🎤 ElevenLabsVoiceManager: Playing human-like speech with volume: \(self.audioPlayer?.volume ?? 0)")
+                
+                // Notify that audio playback has started (for caption sync)
+                let audioDuration = self.audioPlayer?.duration ?? 0.0
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ElevenLabsPlaybackStarted"),
+                    object: nil,
+                    userInfo: ["duration": audioDuration]
+                )
             } else {
                 print("❌ ElevenLabsVoiceManager: Failed to start playback")
                 completion(false)
@@ -277,6 +321,15 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
                 let success = self.audioPlayer?.play() ?? false
                 if success {
                     print("🎤 ElevenLabsVoiceManager: Playing premium Rex voice with volume: \(self.audioPlayer?.volume ?? 0)")
+                    
+                    // Notify that audio playback has started (for caption sync)
+                    let audioDuration = self.audioPlayer?.duration ?? 0.0
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ElevenLabsPlaybackStarted"),
+                        object: nil,
+                        userInfo: ["duration": audioDuration]
+                    )
+                    
                     return
                 } else {
                     print("❌ ElevenLabsVoiceManager: First retry failed to start playback")
@@ -305,6 +358,15 @@ class ElevenLabsVoiceManager: NSObject, ObservableObject {
                     let success = self.audioPlayer?.play() ?? false
                     if success {
                         print("🎤 ElevenLabsVoiceManager: Playing premium Rex voice (second attempt) with volume: \(self.audioPlayer?.volume ?? 0)")
+                        
+                        // Notify that audio playback has started (for caption sync)
+                        let audioDuration = self.audioPlayer?.duration ?? 0.0
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("ElevenLabsPlaybackStarted"),
+                            object: nil,
+                            userInfo: ["duration": audioDuration]
+                        )
+                        
                         return
                     } else {
                         print("❌ ElevenLabsVoiceManager: Second retry failed to start playback")

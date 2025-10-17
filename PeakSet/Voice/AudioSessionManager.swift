@@ -57,8 +57,8 @@ class AudioSessionManager {
             print("[AudioSession] Warning: Previous deactivation failed: \(error)")
         }
         
-        // Wait longer for clean transition and system recovery
-        Thread.sleep(forTimeInterval: 0.5)
+        // Shorter wait for faster response
+        Thread.sleep(forTimeInterval: 0.3)
         
         // Try multiple approaches for recording configuration
         var success = false

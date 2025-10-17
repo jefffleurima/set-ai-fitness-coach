@@ -26,8 +26,8 @@ Package.pins
 Package.resolved
 
 # Sensitive Configuration
-Set/Config.swift
-Set/Info.plist
+PeakSet/Config.swift
+PeakSet/Info.plist
 *.xcconfig
 !Config.template.xcconfig
 !Info.template.plist
@@ -35,4 +35,10 @@ Set/Info.plist
 # Environment variables
 .env
 .env.*
-PeakSet/Info.plist
+
+# SQL files and temporary documentation
+*.sql
+DEVELOPER_GUIDE.md
+CHANGELOG.md
+DATABASE_STATUS.md
+SUPABASE_SETUP.md

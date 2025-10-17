@@ -91,14 +91,9 @@ class SkeletonOverlayView: UIView {
         for jointName in jointNames {
             do {
                 let point = try observation.recognizedPoint(jointName)
-                if point.confidence > 0.1 { // Lower threshold for better tracking
+                if point.confidence > 0.3 { // Higher threshold for more reliable tracking
                     let screenPoint = convertToScreenCoordinates(point: point)
                     positions[jointName] = screenPoint
-                    
-                    // Debug: Print joint positions for troubleshooting
-                    if jointName == .nose || jointName == .leftHip || jointName == .rightHip {
-                        print("🔍 \(jointName): confidence=\(String(format: "%.2f", point.confidence)), normalized=(\(String(format: "%.2f", point.location.x)), \(String(format: "%.2f", point.location.y))), screen=(\(String(format: "%.0f", screenPoint.x)), \(String(format: "%.0f", screenPoint.y)))")
-                    }
                 }
             } catch {
                 // Joint not available

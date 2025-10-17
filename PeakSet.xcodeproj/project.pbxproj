@@ -20,6 +20,7 @@
 		D80FB34B2E6E288E0049475B /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3272E6E288E0049475B /* AppTheme.swift */; };
 		D80FB34D2E6E288E0049475B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB33A2E6E288E0049475B /* ContentView.swift */; };
 		D80FB34E2E6E288E0049475B /* AICoachFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3202E6E288E0049475B /* AICoachFeedback.swift */; };
+		D80FB34F2E6E288E0049475B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32F12E6E288E0049475B /* ProfileView.swift */; };
 		D80FB3502E6E288E0049475B /* OpenAIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3232E6E288E0049475B /* OpenAIClient.swift */; };
 		D80FB3512E6E288E0049475B /* HealthDetailViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32C2E6E288E0049475B /* HealthDetailViews.swift */; };
 		D80FB3532E6E288E0049475B /* WelcomeScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */; };
@@ -32,8 +33,23 @@
 		D80FB35C2E6E288E0049475B /* MirrorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB35D2E6E288E0049475B /* MirrorViewController.swift */; };
 		D80FB35E2E6E288E0049475B /* SkeletonOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB35F2E6E288E0049475B /* SkeletonOverlayView.swift */; };
 		D80FB3602E6E288E0049475B /* MirrorViewWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3612E6E288E0049475B /* MirrorViewWrapper.swift */; };
+		D80FB3622E6E288E0049475B /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3632E6E288E0049475B /* User.swift */; };
+		D80FB3642E6E288E0049475B /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80FB3652E6E288E0049475B /* AuthView.swift */; };
 		D80FB3722E6E4E890049475B /* Porcupine in Frameworks */ = {isa = PBXBuildFile; productRef = D80FB3712E6E4E890049475B /* Porcupine */; };
 		D80FB3752E6E4E9C0049475B /* ios_voice_processor in Frameworks */ = {isa = PBXBuildFile; productRef = D80FB3742E6E4E9C0049475B /* ios_voice_processor */; };
+		D82DD1EF2E91A50B00CEE4C8 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD1EE2E91A50B00CEE4C8 /* OnboardingView.swift */; };
+		D82DD1F22E91B2D500CEE4C8 /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1F12E91B2D500CEE4C8 /* Auth */; };
+		D82DD1F42E91B2D500CEE4C8 /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1F32E91B2D500CEE4C8 /* Functions */; };
+		D82DD1F62E91B2D500CEE4C8 /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1F52E91B2D500CEE4C8 /* PostgREST */; };
+		D82DD1F82E91B2D500CEE4C8 /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1F72E91B2D500CEE4C8 /* Realtime */; };
+		D82DD1FA2E91B2D500CEE4C8 /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1F92E91B2D500CEE4C8 /* Storage */; };
+		D82DD1FC2E91B2D500CEE4C8 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = D82DD1FB2E91B2D500CEE4C8 /* Supabase */; };
+		D82DD1FE2E91B7BB00CEE4C8 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD1FD2E91B7BB00CEE4C8 /* SupabaseManager.swift */; };
+		D82DD2002E91D9B400CEE4C8 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD1FF2E91D9B400CEE4C8 /* NotificationManager.swift */; };
+		D82DD2022E98344B00CEE4C8 /* ConversationMemory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD2012E98344B00CEE4C8 /* ConversationMemory.swift */; };
+		D82DD2042E98346800CEE4C8 /* UserProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD2032E98346800CEE4C8 /* UserProfileManager.swift */; };
+		D82DD2082E983C7300CEE4C8 /* HealthData.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD2072E983C7300CEE4C8 /* HealthData.swift */; };
+		D82DD20A2E99A84000CEE4C8 /* WorkoutCoachingTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82DD2092E99A84000CEE4C8 /* WorkoutCoachingTemplates.swift */; };
 		D85C86D82E71FD7900937296 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D85C86D62E71FD7900937296 /* LICENSE.txt */; };
 		D85C86D92E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn in Resources */ = {isa = PBXBuildFile; fileRef = D85C86D52E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn */; };
 /* End PBXBuildFile section */
@@ -72,6 +88,7 @@
 		D80FB32D2E6E288E0049475B /* MessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesView.swift; sourceTree = "<group>"; };
 		D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreenView.swift; sourceTree = "<group>"; };
 		D80FB32EA2E6E288E0049475B /* TermsAndConditionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsAndConditionsView.swift; sourceTree = "<group>"; };
+		D80FB32F12E6E288E0049475B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		D80FB32F2E6E288E0049475B /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		D80FB3322E6E288E0049475B /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 		D80FB3332E6E288E0049475B /* ElevenLabsVoiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsVoiceManager.swift; sourceTree = "<group>"; };
@@ -87,6 +104,15 @@
 		D80FB35D2E6E288E0049475B /* MirrorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewController.swift; sourceTree = "<group>"; };
 		D80FB35F2E6E288E0049475B /* SkeletonOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonOverlayView.swift; sourceTree = "<group>"; };
 		D80FB3612E6E288E0049475B /* MirrorViewWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorViewWrapper.swift; sourceTree = "<group>"; };
+		D80FB3632E6E288E0049475B /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		D80FB3652E6E288E0049475B /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		D82DD1EE2E91A50B00CEE4C8 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		D82DD1FD2E91B7BB00CEE4C8 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		D82DD1FF2E91D9B400CEE4C8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		D82DD2012E98344B00CEE4C8 /* ConversationMemory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationMemory.swift; sourceTree = "<group>"; };
+		D82DD2032E98346800CEE4C8 /* UserProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileManager.swift; sourceTree = "<group>"; };
+		D82DD2072E983C7300CEE4C8 /* HealthData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthData.swift; sourceTree = "<group>"; };
+		D82DD2092E99A84000CEE4C8 /* WorkoutCoachingTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCoachingTemplates.swift; sourceTree = "<group>"; };
 		D85C86D52E71FD7900937296 /* Hey-Rex_en_ios_v3_0_0.ppn */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Hey-Rex_en_ios_v3_0_0.ppn"; sourceTree = "<group>"; };
 		D85C86D62E71FD7900937296 /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -98,6 +124,12 @@
 			files = (
 				D80FB3752E6E4E9C0049475B /* ios_voice_processor in Frameworks */,
 				D80FB3722E6E4E890049475B /* Porcupine in Frameworks */,
+				D82DD1FA2E91B2D500CEE4C8 /* Storage in Frameworks */,
+				D82DD1F42E91B2D500CEE4C8 /* Functions in Frameworks */,
+				D82DD1FC2E91B2D500CEE4C8 /* Supabase in Frameworks */,
+				D82DD1F82E91B2D500CEE4C8 /* Realtime in Frameworks */,
+				D82DD1F22E91B2D500CEE4C8 /* Auth in Frameworks */,
+				D82DD1F62E91B2D500CEE4C8 /* PostgREST in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -132,10 +164,17 @@
 		D80FB3242E6E288E0049475B /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				D82DD2092E99A84000CEE4C8 /* WorkoutCoachingTemplates.swift */,
+				D82DD2072E983C7300CEE4C8 /* HealthData.swift */,
 				D80FB3202E6E288E0049475B /* AICoachFeedback.swift */,
 				D80FB3212E6E288E0049475B /* Exercise.swift */,
 				D80FB3222E6E288E0049475B /* HealthKitManager.swift */,
 				D80FB3232E6E288E0049475B /* OpenAIClient.swift */,
+				D80FB3632E6E288E0049475B /* User.swift */,
+				D82DD1FD2E91B7BB00CEE4C8 /* SupabaseManager.swift */,
+				D82DD1FF2E91D9B400CEE4C8 /* NotificationManager.swift */,
+				D82DD2012E98344B00CEE4C8 /* ConversationMemory.swift */,
+				D82DD2032E98346800CEE4C8 /* UserProfileManager.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -171,8 +210,11 @@
 				D80FB32C2E6E288E0049475B /* HealthDetailViews.swift */,
 				D80FB32D2E6E288E0049475B /* MessagesView.swift */,
 				D80FB32E2E6E288E0049475B /* WelcomeScreenView.swift */,
+				D80FB3652E6E288E0049475B /* AuthView.swift */,
 				D80FB32EA2E6E288E0049475B /* TermsAndConditionsView.swift */,
 				D80FB32F2E6E288E0049475B /* SummaryView.swift */,
+				D80FB32F12E6E288E0049475B /* ProfileView.swift */,
+				D82DD1EE2E91A50B00CEE4C8 /* OnboardingView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -256,6 +298,12 @@
 			packageProductDependencies = (
 				D80FB3712E6E4E890049475B /* Porcupine */,
 				D80FB3742E6E4E9C0049475B /* ios_voice_processor */,
+				D82DD1F12E91B2D500CEE4C8 /* Auth */,
+				D82DD1F32E91B2D500CEE4C8 /* Functions */,
+				D82DD1F52E91B2D500CEE4C8 /* PostgREST */,
+				D82DD1F72E91B2D500CEE4C8 /* Realtime */,
+				D82DD1F92E91B2D500CEE4C8 /* Storage */,
+				D82DD1FB2E91B2D500CEE4C8 /* Supabase */,
 			);
 			productName = Peakset;
 			productReference = D80FB2A42E6E271E0049475B /* Peakset.app */;
@@ -336,6 +384,7 @@
 			packageReferences = (
 				D80FB3702E6E4E890049475B /* XCRemoteSwiftPackageReference "Porcupine" */,
 				D80FB3732E6E4E9C0049475B /* XCRemoteSwiftPackageReference "ios-voice-processor" */,
+				D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D8F4CC1C2DFB35BC00B9E108 /* Products */;
@@ -392,19 +441,29 @@
 				D80FB3462E6E288E0049475B /* HealthKitManager.swift in Sources */,
 				D80FB3472E6E288E0049475B /* AudioSessionManager.swift in Sources */,
 				D80FB3492E6E288E0049475B /* SummaryView.swift in Sources */,
+				D80FB34F2E6E288E0049475B /* ProfileView.swift in Sources */,
 				D80FB34A2E6E288E0049475B /* ExerciseView.swift in Sources */,
+				D82DD1EF2E91A50B00CEE4C8 /* OnboardingView.swift in Sources */,
+				D82DD1FE2E91B7BB00CEE4C8 /* SupabaseManager.swift in Sources */,
 				D80FB34B2E6E288E0049475B /* AppTheme.swift in Sources */,
 				D80FB34D2E6E288E0049475B /* ContentView.swift in Sources */,
 				D80FB34E2E6E288E0049475B /* AICoachFeedback.swift in Sources */,
 				D80FB3502E6E288E0049475B /* OpenAIClient.swift in Sources */,
 				D80FB3512E6E288E0049475B /* HealthDetailViews.swift in Sources */,
+				D82DD2002E91D9B400CEE4C8 /* NotificationManager.swift in Sources */,
 				D80FB3532E6E288E0049475B /* WelcomeScreenView.swift in Sources */,
 				D80FB353A2E6E288E0049475B /* TermsAndConditionsView.swift in Sources */,
 				D80FB3542E6E288E0049475B /* VoiceAssistantManager.swift in Sources */,
+				D82DD2042E98346800CEE4C8 /* UserProfileManager.swift in Sources */,
 				D80FB3552E6E288E0049475B /* PeakSetApp.swift in Sources */,
+				D82DD2022E98344B00CEE4C8 /* ConversationMemory.swift in Sources */,
 				D80FB35C2E6E288E0049475B /* MirrorViewController.swift in Sources */,
 				D80FB35E2E6E288E0049475B /* SkeletonOverlayView.swift in Sources */,
 				D80FB3602E6E288E0049475B /* MirrorViewWrapper.swift in Sources */,
+				D82DD2082E983C7300CEE4C8 /* HealthData.swift in Sources */,
+				D80FB3622E6E288E0049475B /* User.swift in Sources */,
+				D80FB3642E6E288E0049475B /* AuthView.swift in Sources */,
+				D82DD20A2E99A84000CEE4C8 /* WorkoutCoachingTemplates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -755,6 +814,14 @@
 				minimumVersion = 1.2.0;
 			};
 		};
+		D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -767,6 +834,36 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D80FB3732E6E4E9C0049475B /* XCRemoteSwiftPackageReference "ios-voice-processor" */;
 			productName = ios_voice_processor;
+		};
+		D82DD1F12E91B2D500CEE4C8 /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		D82DD1F32E91B2D500CEE4C8 /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		D82DD1F52E91B2D500CEE4C8 /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		D82DD1F72E91B2D500CEE4C8 /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		D82DD1F92E91B2D500CEE4C8 /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		D82DD1FB2E91B2D500CEE4C8 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D82DD1F02E91B2D500CEE4C8 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

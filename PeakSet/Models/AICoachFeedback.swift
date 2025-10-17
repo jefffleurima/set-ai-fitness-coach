@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import UserNotifications
 
 /// AI Coach Feedback system that analyzes workout performance and provides insights
 class AICoachFeedback: ObservableObject {
@@ -15,11 +16,11 @@ class AICoachFeedback: ObservableObject {
         let lastUpdated: Date
     }
     
-    enum ImprovementTrend {
-        case improving
-        case stable
-        case declining
-        case newUser
+    enum ImprovementTrend: String {
+        case improving = "improving"
+        case stable = "stable"
+        case declining = "declining"
+        case newUser = "newUser"
     }
     
     // MARK: - Main Analysis Function
@@ -33,6 +34,27 @@ class AICoachFeedback: ObservableObject {
             DispatchQueue.main.async {
                 self?.feedback = feedback
                 self?.isLoading = false
+                
+                // Send notification when feedback is ready
+                self?.sendWorkoutFeedbackNotification()
+            }
+        }
+    }
+    
+    // MARK: - Vision-Based Workout Analysis
+    
+    func generateFeedbackFromVisionData(_ sessionData: FormAnalyzer.WorkoutSessionData, previousSessions: [WorkoutSession] = []) {
+        isLoading = true
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let feedback = self?.analyzeVisionWorkoutData(sessionData, previousSessions: previousSessions) ?? self?.getDefaultFeedback()
+            
+            DispatchQueue.main.async {
+                self?.feedback = feedback
+                self?.isLoading = false
+                
+                // Send notification when feedback is ready
+                self?.sendFormAnalysisNotification()
             }
         }
     }
@@ -78,6 +100,49 @@ class AICoachFeedback: ObservableObject {
             averageFormScore: averageFormScore,
             improvementTrend: improvementTrend,
             sessions: recentSessions
+        )
+        
+        return CoachFeedback(
+            whatsWorkingWell: whatsWorkingWell,
+            areasToFocusOn: areasToFocusOn,
+            nextSessionRecommendations: nextSessionRecommendations,
+            overallScore: averageFormScore,
+            improvementTrend: improvementTrend,
+            lastUpdated: Date()
+        )
+    }
+    
+    private func analyzeVisionWorkoutData(_ sessionData: FormAnalyzer.WorkoutSessionData, previousSessions: [WorkoutSession]) -> CoachFeedback {
+        // Use the comprehensive vision data for detailed analysis
+        
+        // Calculate key metrics from vision data
+        let averageFormScore = Int(sessionData.averageFormScore * 100)
+        let goodRepPercentage = sessionData.totalReps > 0 ? Float(sessionData.goodReps) / Float(sessionData.totalReps) : 0.0
+        let perfectFormReps = sessionData.repAnalysis.filter { $0.score >= 0.95 }.count
+        
+        // Analyze trends from previous sessions
+        let improvementTrend = analyzeImprovementTrendFromVision(sessionData, previousSessions: previousSessions)
+        
+        // Generate comprehensive insights using vision data
+        let whatsWorkingWell = generateVisionBasedWhatsWorkingWell(
+            sessionData: sessionData,
+            averageFormScore: averageFormScore,
+            goodRepPercentage: goodRepPercentage,
+            perfectFormReps: perfectFormReps
+        )
+        
+        let areasToFocusOn = generateVisionBasedAreasToFocusOn(
+            sessionData: sessionData,
+            averageFormScore: averageFormScore,
+            goodRepPercentage: goodRepPercentage,
+            perfectFormReps: perfectFormReps
+        )
+        
+        let nextSessionRecommendations = generateVisionBasedNextSessionRecommendations(
+            sessionData: sessionData,
+            averageFormScore: averageFormScore,
+            improvementTrend: improvementTrend,
+            previousSessions: previousSessions
         )
         
         return CoachFeedback(
@@ -263,6 +328,253 @@ class AICoachFeedback: ObservableObject {
             improvementTrend: .newUser,
             lastUpdated: Date()
         )
+    }
+    
+    // MARK: - Vision-Based Analysis Methods
+    
+    private func analyzeImprovementTrendFromVision(_ sessionData: FormAnalyzer.WorkoutSessionData, previousSessions: [WorkoutSession]) -> ImprovementTrend {
+        guard !previousSessions.isEmpty else { return .newUser }
+        
+        // Compare current session with previous sessions
+        let recentSessions = previousSessions.suffix(3)
+        let recentAverage = recentSessions.map { $0.formScore }.reduce(0, +) / recentSessions.count
+        let currentScore = Int(sessionData.averageFormScore * 100)
+        
+        let difference = currentScore - recentAverage
+        
+        if difference > 5 {
+            return .improving
+        } else if difference < -5 {
+            return .declining
+        } else {
+            return .stable
+        }
+    }
+    
+    private func generateVisionBasedWhatsWorkingWell(
+        sessionData: FormAnalyzer.WorkoutSessionData,
+        averageFormScore: Int,
+        goodRepPercentage: Float,
+        perfectFormReps: Int
+    ) -> [String] {
+        var insights: [String] = []
+        
+        // Duration analysis
+        let durationMinutes = Int(sessionData.duration / 60)
+        if durationMinutes >= 10 {
+            insights.append("Great workout duration with \(durationMinutes) minutes of focused training")
+        }
+        
+        // Form consistency analysis
+        if averageFormScore >= 85 {
+            insights.append("Excellent form consistency with \(averageFormScore)% average score")
+        } else if averageFormScore >= 75 {
+            insights.append("Good form consistency with \(averageFormScore)% average score")
+        }
+        
+        // Good rep analysis
+        let goodRepPercentageInt = Int(goodRepPercentage * 100)
+        if goodRepPercentageInt >= 80 {
+            insights.append("Outstanding rep quality with \(goodRepPercentageInt)% of reps meeting form standards")
+        } else if goodRepPercentageInt >= 60 {
+            insights.append("Solid rep quality with \(goodRepPercentageInt)% of reps meeting form standards")
+        }
+        
+        // Perfect form analysis
+        if perfectFormReps > 0 {
+            let perfectPercentage = Int(Float(perfectFormReps) / Float(sessionData.totalReps) * 100)
+            insights.append("\(perfectPercentage)% of your reps achieved perfect form - excellent control!")
+        }
+        
+        // Volume analysis
+        if sessionData.totalReps >= 20 {
+            insights.append("Impressive volume with \(sessionData.totalReps) total reps")
+        }
+        
+        // Safety analysis
+        let highSeverityIssues = sessionData.safetyIssues.filter { $0.severity == .high }.count
+        if highSeverityIssues == 0 {
+            insights.append("Great job maintaining safe form throughout the workout")
+        }
+        
+        // Improvement analysis
+        let improvingReps = sessionData.repAnalysis.filter { rep in
+            guard rep.repNumber > 1 else { return false }
+            let previousRep = sessionData.repAnalysis.first { $0.repNumber == rep.repNumber - 1 }
+            let previousScore = previousRep?.score ?? 0
+            return rep.score > previousScore
+        }.count
+        
+        if improvingReps > sessionData.totalReps / 2 {
+            insights.append("Form improved throughout the session - great learning and adaptation")
+        }
+        
+        return insights.isEmpty ? ["Keep up the consistent effort!"] : insights
+    }
+    
+    private func generateVisionBasedAreasToFocusOn(
+        sessionData: FormAnalyzer.WorkoutSessionData,
+        averageFormScore: Int,
+        goodRepPercentage: Float,
+        perfectFormReps: Int
+    ) -> [String] {
+        var insights: [String] = []
+        
+        // Form score analysis
+        if averageFormScore < 75 {
+            insights.append("Focus on form quality - current average is \(averageFormScore)%")
+        } else if averageFormScore < 85 {
+            insights.append("Form is good but can be improved from \(averageFormScore)% to 90%+")
+        }
+        
+        // Good rep analysis
+        let goodRepPercentageInt = Int(goodRepPercentage * 100)
+        if goodRepPercentageInt < 60 {
+            insights.append("Only \(goodRepPercentageInt)% of reps met quality standards - focus on control and technique")
+        }
+        
+        // Perfect form analysis
+        let perfectPercentage = sessionData.totalReps > 0 ? Int(Float(perfectFormReps) / Float(sessionData.totalReps) * 100) : 0
+        if perfectPercentage < 20 {
+            insights.append("Only \(perfectPercentage)% of reps achieved perfect form - focus on slow, controlled movements")
+        }
+        
+        // Safety issues analysis
+        let highSeverityIssues = sessionData.safetyIssues.filter { $0.severity == .high }
+        if !highSeverityIssues.isEmpty {
+            let issueTypes = Set(highSeverityIssues.map { $0.type })
+            for issueType in issueTypes {
+                switch issueType {
+                case .kneeValgus:
+                    insights.append("Address knee valgus - focus on keeping knees over toes")
+                case .spinalFlexion:
+                    insights.append("Maintain neutral spine - avoid rounding the back")
+                case .poorStability:
+                    insights.append("Improve stability and control throughout the movement")
+                case .excessiveSpeed:
+                    insights.append("Slow down the movement for better control")
+                case .incompleteRange:
+                    insights.append("Focus on full range of motion")
+                }
+            }
+        }
+        
+        // Consistency analysis
+        if sessionData.repAnalysis.count >= 3 {
+            let scoreVariation = sessionData.repAnalysis.map { $0.score }
+            let minScore = scoreVariation.min() ?? 0
+            let maxScore = scoreVariation.max() ?? 0
+            let variation = maxScore - minScore
+            
+            if variation > 0.3 {
+                insights.append("Work on consistency - form scores varied from \(Int(minScore * 100))% to \(Int(maxScore * 100))%")
+            }
+        }
+        
+        return insights.isEmpty ? ["Continue focusing on consistency"] : insights
+    }
+    
+    private func generateVisionBasedNextSessionRecommendations(
+        sessionData: FormAnalyzer.WorkoutSessionData,
+        averageFormScore: Int,
+        improvementTrend: ImprovementTrend,
+        previousSessions: [WorkoutSession]
+    ) -> [String] {
+        var recommendations: [String] = []
+        
+        // Form-based recommendations
+        if averageFormScore < 80 {
+            recommendations.append("Start with lighter weights or bodyweight to focus on perfect form")
+            recommendations.append("Practice the movement pattern slowly before adding speed")
+        } else if averageFormScore >= 85 {
+            recommendations.append("Consider increasing weight or reps for progression")
+        }
+        
+        // Safety-based recommendations
+        let highSeverityIssues = sessionData.safetyIssues.filter { $0.severity == .high }
+        if !highSeverityIssues.isEmpty {
+            recommendations.append("Focus on the safety issues identified in this session")
+            recommendations.append("Consider working with a lighter load to perfect form")
+        }
+        
+        // Trend-based recommendations
+        switch improvementTrend {
+        case .improving:
+            recommendations.append("Great progress! Continue with your current approach")
+        case .stable:
+            recommendations.append("Try adding new exercises or increasing intensity gradually")
+        case .declining:
+            recommendations.append("Focus on recovery and form fundamentals")
+        case .newUser:
+            recommendations.append("Start with bodyweight exercises to build foundation")
+        }
+        
+        // Exercise-specific recommendations
+        let exerciseName = sessionData.exercise.name.lowercased()
+        if exerciseName.contains("squat") {
+            recommendations.append("Try adding deadlifts or lunges for lower body variety")
+        } else if exerciseName.contains("deadlift") {
+            recommendations.append("Consider adding squats or hip thrusts for comprehensive training")
+        }
+        
+        // Volume recommendations
+        if sessionData.totalReps < 15 {
+            recommendations.append("Aim for 15-20 reps next session for better volume")
+        } else if sessionData.totalReps > 30 {
+            recommendations.append("Consider reducing reps and focusing on quality")
+        }
+        
+        return recommendations.isEmpty ? ["Keep up the consistent effort!"] : recommendations
+    }
+    
+    // MARK: - Notification Functions
+    
+    private func sendWorkoutFeedbackNotification() {
+        guard UserDefaults.standard.bool(forKey: "notificationsEnabled") else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "🎯 Workout Analysis Complete"
+        content.body = "Rex has analyzed your workout form. Check your feedback!"
+        content.sound = .default
+        content.badge = 1
+        
+        let request = UNNotificationRequest(
+            identifier: "workout_feedback_\(UUID().uuidString)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to send workout feedback notification: \(error)")
+            } else {
+                print("✅ Workout feedback notification sent")
+            }
+        }
+    }
+    
+    private func sendFormAnalysisNotification() {
+        guard UserDefaults.standard.bool(forKey: "notificationsEnabled") else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "🏋️ Form Analysis Complete"
+        content.body = "Your exercise form has been analyzed. Great work!"
+        content.sound = .default
+        content.badge = 1
+        
+        let request = UNNotificationRequest(
+            identifier: "form_analysis_\(UUID().uuidString)",
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to send form analysis notification: \(error)")
+            } else {
+                print("✅ Form analysis notification sent")
+            }
+        }
     }
 }
 

@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - Helper Functions
+
+private func formatNumber(_ number: Int) -> String {
+    let formatter = NumberFormatter()
+    formatter.numberStyle = .decimal
+    return formatter.string(from: NSNumber(value: number)) ?? "\(number)"
+}
+
 // MARK: - Step Count Detail View
 struct StepCountDetailView: View {
     @ObservedObject var healthKitManager: HealthKitManager
@@ -26,7 +34,7 @@ struct StepCountDetailView: View {
                                 .font(.subheadline)
                                 .foregroundColor(AppTheme.textSecondary)
                             
-                            Text("\(healthKitManager.getTodayStepCount())")
+                            Text(formatNumber(healthKitManager.getTodayStepCount()))
                                 .font(.system(size: 48, weight: .bold, design: .rounded))
                                 .foregroundColor(.purple)
                             
@@ -68,20 +76,6 @@ struct StepCountDetailView: View {
                                 .padding(.horizontal, 20)
                         }
                         
-                        // View All Button
-                        Button(action: {
-                            // TODO: Navigate to all step metrics
-                        }) {
-                            Text("View All Steps Metrics")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppTheme.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(AppTheme.surface)
-                                .cornerRadius(12)
-                        }
-                        .padding(.horizontal, 20)
                         .padding(.bottom, 100)
                     }
                 }
@@ -246,20 +240,6 @@ struct ActiveEnergyDetailView: View {
                                 .padding(.horizontal, 20)
                         }
                         
-                        // View All Button
-                        Button(action: {
-                            // TODO: Navigate to all calorie metrics
-                        }) {
-                            Text("View All Calories Metrics")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppTheme.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(AppTheme.surface)
-                                .cornerRadius(12)
-                        }
-                        .padding(.horizontal, 20)
                         .padding(.bottom, 100)
                     }
                 }
@@ -424,20 +404,6 @@ struct StepDistanceDetailView: View {
                                 .padding(.horizontal, 20)
                         }
                         
-                        // View All Button
-                        Button(action: {
-                            // TODO: Navigate to all distance metrics
-                        }) {
-                            Text("View All Distance Metrics")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppTheme.primary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(AppTheme.surface)
-                                .cornerRadius(12)
-                        }
-                        .padding(.horizontal, 20)
                         .padding(.bottom, 100)
                     }
                 }

@@ -10,86 +10,8 @@ struct MessagesView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0.0) {
-                // Chat messages list with performance optimizations
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(viewModel.messages) { message in
-                                ChatBubble(message: message)
-                                    .id(message.id)
-                                    .transition(.asymmetric(
-                                        insertion: .scale.combined(with: .opacity),
-                                        removal: .opacity
-                                    ))
-                            }
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    }
-                    .onChange(of: viewModel.messages) { oldValue, newValue in
-                        if let lastMessage = newValue.last {
-                            withAnimation(.easeOut(duration: 0.3)) {
-                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    .onTapGesture {
-                        // Dismiss keyboard when tapping on the chat area
-                        isInputFocused = false
-                    }
-                }
-                .background(AppTheme.background.ignoresSafeArea())
-                
-                // Message input with performance optimizations
-                VStack(spacing: 0) {
-                    Divider()
-                    HStack(alignment: .bottom, spacing: 8) {
-                        ZStack(alignment: .leading) {
-                            AutoGrowingTextEditor(text: $messageText, dynamicHeight: $textEditorHeight, minHeight: 36, maxHeight: 120)
-                                .frame(height: textEditorHeight)
-                                .padding(.horizontal, 12)
-                                .background(AppTheme.surface)
-                                .foregroundColor(AppTheme.text)
-                                .clipShape(
-                                    textEditorHeight <= 44
-                                    ? AnyShape(Capsule())
-                                    : AnyShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                                )
-                                .focused($isInputFocused)
-                            
-                            if messageText.isEmpty {
-                                Text("Ask Rex anything...")
-                                    .foregroundColor(AppTheme.text.opacity(0.4))
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 8)
-                                    .allowsHitTesting(false)
-                                    .onTapGesture {
-                                        isInputFocused = true
-                                    }
-                            }
-                        }
-                        
-                        // Send button with loading state
-                        Button(action: sendMessage) {
-                            ZStack {
-                                if viewModel.isProcessing {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                        .progressViewStyle(CircularProgressViewStyle(tint: AppTheme.text.opacity(0.3)))
-                                } else {
-                                    Image(systemName: "arrow.up.circle.fill")
-                                        .font(.system(size: 28))
-                                }
-                            }
-                            .foregroundColor(viewModel.isProcessing ? AppTheme.text.opacity(0.3) : AppTheme.primary)
-                        }
-                        .disabled(messageText.isEmpty || viewModel.isProcessing)
-                        .padding(.trailing, 8)
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(AppTheme.background)
-                }
+                chatMessagesSection
+                messageInputSection
             }
             .navigationTitle("Rex - Your AI Coach")
             .navigationBarTitleDisplayMode(.inline)
@@ -112,7 +34,6 @@ struct MessagesView: View {
                     }
                 }
                 
-                // Add keyboard dismiss button
                 ToolbarItem(placement: .keyboard) {
                     Button("Done") {
                         isInputFocused = false
@@ -121,7 +42,6 @@ struct MessagesView: View {
                 }
             }
             .onAppear {
-                // Configure navigation bar appearance for better readability
                 let appearance = UINavigationBarAppearance()
                 appearance.configureWithOpaqueBackground()
                 appearance.backgroundColor = UIColor(AppTheme.background)
@@ -139,10 +59,96 @@ struct MessagesView: View {
                 UINavigationBar.appearance().compactAppearance = appearance
             }
             .onTapGesture {
-                // Dismiss keyboard when tapping anywhere on the view
                 isInputFocused = false
             }
         }
+    }
+    
+    // MARK: - Chat Messages Section
+    private var chatMessagesSection: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(viewModel.messages) { message in
+                        ChatBubble(message: message)
+                            .id(message.id)
+                            .transition(.opacity)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+            .onChange(of: viewModel.messages) { oldValue, newValue in
+                if let lastMessage = newValue.last {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                    }
+                }
+            }
+            .onTapGesture {
+                isInputFocused = false
+            }
+        }
+        .background(AppTheme.background.ignoresSafeArea())
+    }
+    
+    // MARK: - Message Input Section
+    private var messageInputSection: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(alignment: .bottom, spacing: 8) {
+                ZStack(alignment: .leading) {
+                    textEditorView
+                        .focused($isInputFocused)
+                    
+                    if messageText.isEmpty {
+                        Text("Ask Rex anything...")
+                            .foregroundColor(AppTheme.text.opacity(0.4))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .allowsHitTesting(false)
+                            .onTapGesture {
+                                isInputFocused = true
+                            }
+                    }
+                }
+                
+                // Send button with loading state
+                Button(action: sendMessage) {
+                    ZStack {
+                        if viewModel.isProcessing {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .progressViewStyle(CircularProgressViewStyle(tint: AppTheme.text.opacity(0.3)))
+                        } else {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 28))
+                        }
+                    }
+                    .foregroundColor(viewModel.isProcessing ? AppTheme.text.opacity(0.3) : AppTheme.primary)
+                }
+                .disabled(messageText.isEmpty || viewModel.isProcessing)
+                .padding(.trailing, 8)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(AppTheme.background)
+        }
+    }
+    
+    // MARK: - Text Editor View
+    private var textEditorView: some View {
+        AutoGrowingTextEditor(
+            text: $messageText,
+            dynamicHeight: $textEditorHeight,
+            minHeight: 36,
+            maxHeight: 120
+        )
+        .frame(height: textEditorHeight)
+        .padding(.horizontal, 12)
+        .background(AppTheme.surface)
+        .foregroundColor(AppTheme.text)
+        .cornerRadius(textEditorHeight <= 44 ? 22 : 18)
     }
     
     private func sendMessage() {
@@ -190,7 +196,8 @@ struct ChatBubble: View {
                     .foregroundColor(AppTheme.text.opacity(0.6))
                     .padding(.horizontal, 4)
                 
-                if message.type == .typing {
+                // Show typing indicator for messages with "..." text
+                if !message.isUser && message.text == "..." {
                     TypingIndicator()
                 }
             }
@@ -368,11 +375,11 @@ struct AnyShape: Shape, @unchecked Sendable {
             let calendar = Calendar.current
             
             previewViewModel.messages = [
-                ChatMessage(id: UUID(), text: "👋 What's up? Ready to crush some goals?", isUser: false, type: .greeting, timestamp: calendar.date(byAdding: .minute, value: -5, to: now) ?? now),
-                ChatMessage(id: UUID(), text: "I want to build muscle", isUser: true, timestamp: calendar.date(byAdding: .minute, value: -4, to: now) ?? now),
-                ChatMessage(id: UUID(), text: "Let's get it! 💪 What's your current routine?", isUser: false, type: .response, timestamp: calendar.date(byAdding: .minute, value: -3, to: now) ?? now),
-                ChatMessage(id: UUID(), text: "I do push-ups and squats", isUser: true, timestamp: calendar.date(byAdding: .minute, value: -2, to: now) ?? now),
-                ChatMessage(id: UUID(), text: "Solid foundation! Add pull-ups and deadlifts. You'll see gains in 4 weeks.", isUser: false, type: .response, timestamp: calendar.date(byAdding: .minute, value: -1, to: now) ?? now)
+                ChatMessage(id: UUID(), text: "👋 What's up? Ready to crush some goals?", isUser: false, type: .greeting, timestamp: calendar.date(byAdding: .minute, value: -5, to: now) ?? now, context: nil),
+                ChatMessage(id: UUID(), text: "I want to build muscle", isUser: true, type: .response, timestamp: calendar.date(byAdding: .minute, value: -4, to: now) ?? now, context: nil),
+                ChatMessage(id: UUID(), text: "Let's get it! 💪 What's your current routine?", isUser: false, type: .response, timestamp: calendar.date(byAdding: .minute, value: -3, to: now) ?? now, context: nil),
+                ChatMessage(id: UUID(), text: "I do push-ups and squats", isUser: true, type: .response, timestamp: calendar.date(byAdding: .minute, value: -2, to: now) ?? now, context: nil),
+                ChatMessage(id: UUID(), text: "Solid foundation! Add pull-ups and deadlifts. You'll see gains in 4 weeks.", isUser: false, type: .response, timestamp: calendar.date(byAdding: .minute, value: -1, to: now) ?? now, context: nil)
             ]
         }
 }

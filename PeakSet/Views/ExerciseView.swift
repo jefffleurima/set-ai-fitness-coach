@@ -82,7 +82,7 @@ struct ExerciseView: View {
     
     private var welcomeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Welcome, \(userName.isEmpty ? "Athlete" : userName)!")
+            Text("Exercises")
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(AppTheme.text)
@@ -90,7 +90,7 @@ struct ExerciseView: View {
             AnimatedAccentBar()
                 .frame(height: 4)
                 .padding(.bottom, 4)
-            Text("Let's fix your form")
+            Text("Choose an exercise to start your workout")
                 .font(.title3)
                 .foregroundColor(AppTheme.textSecondary)
         }

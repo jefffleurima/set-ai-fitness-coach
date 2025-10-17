@@ -6,20 +6,13 @@ class AICoachViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isProcessing = false
     @Published var userProfile: OpenAIClient.UserProfile
-    @Published var currentWorkoutContext: WorkoutContext?
     
     private let openAIClient = OpenAIClient.shared
     private var cancellables = Swift.Set<AnyCancellable>()
     
-    // Enhanced memory system
-    private var conversationMemory: [String: Any] = [:]
-    private var userPreferences: [String: Any] = [:]
-    private var workoutHistory: [[String: Any]] = []
-    
     init() {
         self.userProfile = OpenAIClient.UserProfile()
         setupInitialGreeting()
-        loadUserMemory()
     }
     
     private func setupInitialGreeting() {
@@ -28,7 +21,8 @@ class AICoachViewModel: ObservableObject {
             text: "👋 What's up? Ready to crush some goals?\n\n💡 I can help with:\n🏋️ Workout plans (daily to yearly)\n🥗 Meal planning & nutrition\n💊 Supplement recommendations\n💪 Form correction & injury prevention\n😴 Sleep & recovery optimization\n🧠 Mental health & motivation\n\nJust ask for what you need!",
             isUser: false,
             type: .greeting,
-            timestamp: Date()
+            timestamp: Date(),
+            context: nil
         )
         messages.append(greeting)
     }
@@ -39,24 +33,24 @@ class AICoachViewModel: ObservableObject {
         let messageTime = Date()
         
         // Add user message
-        let userMessage = ChatMessage(id: UUID(), text: text, isUser: true, timestamp: messageTime)
+        let userMessage = ChatMessage(id: UUID(), text: text, isUser: true, type: .response, timestamp: messageTime, context: nil)
         messages.append(userMessage)
         
-        // Show typing indicator
-        let typingMessage = ChatMessage(id: UUID(), text: "...", isUser: false, type: .typing, timestamp: messageTime)
+        // Show typing indicator (temporarily, will be removed when response arrives)
+        let typingMessage = ChatMessage(id: UUID(), text: "...", isUser: false, type: .response, timestamp: messageTime, context: nil)
         messages.append(typingMessage)
         
         isProcessing = true
         
-        // Update memory with user input
-        updateMemory(with: text)
+        // Check if user is telling us their name
+        updateUserProfileFromConversation(userInput: text)
         
-        // Send to OpenAI with enhanced context - no restrictive prompt enhancement
-        let enhancedContext = buildEnhancedContext()
-        openAIClient.sendMessage(prompt: text, context: enhancedContext) { [weak self] result in
+        // Send to OpenAI with user data context
+        let userData = createUserDataContext()
+        openAIClient.sendMessage(prompt: text, context: nil, userData: userData) { [weak self] result in
             DispatchQueue.main.async {
-                // Remove typing indicator
-                if let index = self?.messages.firstIndex(where: { $0.type == .typing }) {
+                // Remove typing indicator (find by text content since we don't have .typing type anymore)
+                if let index = self?.messages.firstIndex(where: { $0.text == "..." && !$0.isUser }) {
                     self?.messages.remove(at: index)
                 }
                 
@@ -69,20 +63,19 @@ class AICoachViewModel: ObservableObject {
                         text: response,
                         isUser: false,
                         type: .response,
-                        timestamp: responseTime
+                        timestamp: responseTime,
+                        context: nil
                     )
                     self?.messages.append(coachMessage)
-                    
-                    // Update memory with AI response
-                    self?.updateMemory(with: response, isAI: true)
                     
                 case .failure(_):
                     let errorMessage = ChatMessage(
                         id: UUID(),
                         text: "My bad, something went wrong. Try again?",
                         isUser: false,
-                        type: .error,
-                        timestamp: responseTime
+                        type: .feedback,
+                        timestamp: responseTime,
+                        context: nil
                     )
                     self?.messages.append(errorMessage)
                 }
@@ -92,338 +85,151 @@ class AICoachViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Enhanced Memory System
-    private func updateMemory(with text: String, isAI: Bool = false) {
-        let timestamp = Date()
-        let memoryEntry: [String: Any] = [
-            "text": text,
-            "timestamp": ISO8601DateFormatter().string(from: timestamp),
-            "isAI": isAI,
-            "context": currentWorkoutContext?.description ?? "general"
-        ]
-        
-        conversationMemory[timestamp.timeIntervalSince1970.description] = memoryEntry
-        
-        // Extract user preferences from conversation
-        if !isAI {
-            extractUserPreferences(from: text)
-        }
-        
-        // Keep memory manageable but larger
-        if conversationMemory.count > 50 {
-            let sortedKeys = conversationMemory.keys.sorted()
-            let keysToRemove = sortedKeys.prefix(10)
-            for key in keysToRemove {
-                conversationMemory.removeValue(forKey: key)
-            }
-        }
-        
-        saveUserMemory()
-    }
+    // MARK: - User Data Context Creation
     
-    private func extractUserPreferences(from text: String) {
-        let lowercased = text.lowercased()
+    private func createUserDataContext() -> UserDataContext {
+        // Get comprehensive user profile from UserDefaults (same as UI)
+        let userProfileManager = UserProfileManager.shared
+        var comprehensiveProfile = userProfileManager.profile
         
-        // Extract fitness goals
-        if lowercased.contains("lose weight") || lowercased.contains("weight loss") || lowercased.contains("fat loss") || lowercased.contains("lose fat") {
-            userPreferences["primaryGoal"] = "weightLoss"
-        } else if lowercased.contains("build muscle") || lowercased.contains("muscle gain") {
-            userPreferences["primaryGoal"] = "muscleGain"
-        } else if lowercased.contains("strength") {
-            userPreferences["primaryGoal"] = "strength"
-        } else if lowercased.contains("abs") || lowercased.contains("core") || lowercased.contains("six pack") {
-            userPreferences["primaryGoal"] = "coreStrength"
-        } else if lowercased.contains("endurance") || lowercased.contains("stamina") {
-            userPreferences["primaryGoal"] = "endurance"
-        } else if lowercased.contains("flexibility") || lowercased.contains("mobility") {
-            userPreferences["primaryGoal"] = "flexibility"
+        // Override with actual user data from UserDefaults (same as ProfileView)
+        comprehensiveProfile.personalInfo.name = UserDefaults.standard.string(forKey: "userName") ?? ""
+        comprehensiveProfile.personalInfo.age = UserDefaults.standard.integer(forKey: "userAge") == 0 ? 25 : UserDefaults.standard.integer(forKey: "userAge")
+        comprehensiveProfile.personalInfo.height = UserDefaults.standard.double(forKey: "userHeight") == 0 ? 170.0 : UserDefaults.standard.double(forKey: "userHeight")
+        comprehensiveProfile.personalInfo.weight = UserDefaults.standard.double(forKey: "userWeight") == 0 ? 70.0 : UserDefaults.standard.double(forKey: "userWeight")
+        
+        // Get fitness level from UserDefaults
+        let fitnessLevelString = UserDefaults.standard.string(forKey: "fitnessLevel") ?? "Intermediate"
+        comprehensiveProfile.fitnessProfile.fitnessLevel = FitnessProfile.FitnessLevel(rawValue: fitnessLevelString.lowercased()) ?? .beginner
+        
+        // Get primary goal from UserDefaults and map to correct enum value
+        let primaryGoalString = UserDefaults.standard.string(forKey: "primaryGoal") ?? "Strength"
+        switch primaryGoalString {
+        case "Strength":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .strength
+        case "Muscle Building":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .muscleGain
+        case "Endurance":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .endurance
+        case "Weight Loss":
+            comprehensiveProfile.fitnessProfile.primaryGoal = .weightLoss
+        default:
+            comprehensiveProfile.fitnessProfile.primaryGoal = .strength
         }
         
-        // Extract experience level
-        if lowercased.contains("beginner") || lowercased.contains("new") || lowercased.contains("just starting") {
-            userPreferences["experienceLevel"] = "beginner"
-        } else if lowercased.contains("advanced") || lowercased.contains("experienced") {
-            userPreferences["experienceLevel"] = "advanced"
-        } else if lowercased.contains("intermediate") {
-            userPreferences["experienceLevel"] = "intermediate"
+        // Get experience level from UserDefaults
+        let experienceString = UserDefaults.standard.string(forKey: "experience") ?? "Intermediate"
+        comprehensiveProfile.fitnessProfile.experience = FitnessProfile.Experience(rawValue: experienceString.lowercased()) ?? .beginner
+        
+        // Get workout frequency from UserDefaults
+        let frequencyString = UserDefaults.standard.string(forKey: "workoutFrequency") ?? "3x per week"
+        switch frequencyString {
+        case "1x per week", "2x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .light
+        case "3x per week", "4x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .moderate
+        case "5x per week", "6x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .intense
+        case "7x per week":
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .elite
+        default:
+            comprehensiveProfile.fitnessProfile.workoutFrequency = .moderate
         }
         
-        // Extract workout preferences
-        if lowercased.contains("home workout") || lowercased.contains("no equipment") || lowercased.contains("bodyweight") {
-            userPreferences["workoutType"] = "home"
-        } else if lowercased.contains("gym") || lowercased.contains("equipment") {
-            userPreferences["workoutType"] = "gym"
-        } else if lowercased.contains("outdoor") || lowercased.contains("park") {
-            userPreferences["workoutType"] = "outdoor"
-        }
+        // Get health data from HealthData bridge
+        let healthData = HealthData.shared
         
-        // Extract time preferences
-        if lowercased.contains("quick") || lowercased.contains("short") || lowercased.contains("30 min") {
-            userPreferences["workoutDuration"] = "short"
-        } else if lowercased.contains("long") || lowercased.contains("intense") {
-            userPreferences["workoutDuration"] = "long"
-        }
+        // Get conversation history with context
+        let conversationHistory = ConversationMemory.shared.getRecentMessages(limit: 20)
         
-        // Extract nutrition preferences
-        if lowercased.contains("meal plan") || lowercased.contains("diet") || lowercased.contains("nutrition") {
-            userPreferences["nutritionFocus"] = "mealPlanning"
-        } else if lowercased.contains("protein") || lowercased.contains("supplement") {
-            userPreferences["nutritionFocus"] = "supplements"
-        } else if lowercased.contains("vegan") || lowercased.contains("vegetarian") {
-            userPreferences["dietaryRestriction"] = "plantBased"
-        } else if lowercased.contains("keto") || lowercased.contains("ketogenic") {
-            userPreferences["dietaryRestriction"] = "keto"
-        } else if lowercased.contains("paleo") {
-            userPreferences["dietaryRestriction"] = "paleo"
-        }
-        
-        // Extract body part focus
-        if lowercased.contains("abs") || lowercased.contains("core") {
-            userPreferences["bodyFocus"] = "core"
-        } else if lowercased.contains("upper body") || lowercased.contains("chest") || lowercased.contains("arms") {
-            userPreferences["bodyFocus"] = "upperBody"
-        } else if lowercased.contains("lower body") || lowercased.contains("legs") {
-            userPreferences["bodyFocus"] = "lowerBody"
-        } else if lowercased.contains("back") || lowercased.contains("shoulders") {
-            userPreferences["bodyFocus"] = "posteriorChain"
-        }
-        
-        // Extract health and wellness focus
-        if lowercased.contains("sleep") || lowercased.contains("recovery") {
-            userPreferences["wellnessFocus"] = "recovery"
-        } else if lowercased.contains("stress") || lowercased.contains("mental") {
-            userPreferences["wellnessFocus"] = "mentalHealth"
-        } else if lowercased.contains("injury") || lowercased.contains("pain") {
-            userPreferences["wellnessFocus"] = "injuryPrevention"
-        }
-        
-        // Extract time frame preferences
-        if lowercased.contains("year") || lowercased.contains("annual") {
-            userPreferences["timeFrame"] = "longTerm"
-        } else if lowercased.contains("month") || lowercased.contains("monthly") {
-            userPreferences["timeFrame"] = "mediumTerm"
-        } else if lowercased.contains("week") || lowercased.contains("weekly") {
-            userPreferences["timeFrame"] = "shortTerm"
-        }
-    }
-    
-    private func buildEnhancedContext() -> WorkoutContext? {
-        // Build enhanced context from memory
-        var enhancedContext = currentWorkoutContext
-        
-        // Add memory-based context
-        let recentMemories = Array(conversationMemory.values.suffix(5))
-        let memoryContext = recentMemories.compactMap { $0 as? [String: Any] }
-            .map { "\($0["text"] ?? "")" }
-            .joined(separator: " | ")
-        
-        // Add user preferences context
-        let preferencesContext = userPreferences.map { "\($0.key): \($0.value)" }.joined(separator: ", ")
-        
-        // Enhanced workout context for better AI responses
-        let workoutContext = buildWorkoutContext()
-        
-        // Create enhanced context
-        if enhancedContext != nil {
-            enhancedContext = WorkoutContext(
-                exercise: enhancedContext?.exercise,
-                currentSet: enhancedContext?.currentSet,
-                totalSets: enhancedContext?.totalSets,
-                currentRep: enhancedContext?.currentRep,
-                formScore: enhancedContext?.formScore,
-                userQuestion: "Memory: \(memoryContext) | Preferences: \(preferencesContext) | Workout: \(workoutContext)"
+        // Get recent workout sessions
+        let recentWorkouts = healthData.recentWorkouts.map { session in
+            OpenAIClient.WorkoutSession(
+                date: session.date,
+                exercises: [session.exerciseName],
+                duration: session.duration,
+                intensity: session.formScore / 10, // Convert form score to intensity 1-10
+                notes: session.notes.isEmpty ? "Form score: \(session.formScore)%" : session.notes
             )
         }
         
-        return enhancedContext
-    }
-    
-    private func buildWorkoutContext() -> String {
-        var context = ""
+        // Get additional HealthKit data
+        let healthKitManager = HealthKitManager.shared
         
-        // Add primary goal context
-        if let goal = userPreferences["primaryGoal"] as? String {
-            context += "Goal: \(goal). "
-        }
+        // Get AI coach feedback if available
+        let aiCoachFeedback = AICoachFeedback()
         
-        // Add experience level context
-        if let level = userPreferences["experienceLevel"] as? String {
-            context += "Level: \(level). "
-        }
-        
-        // Add workout type context
-        if let type = userPreferences["workoutType"] as? String {
-            context += "Equipment: \(type). "
-        }
-        
-        // Add duration preference
-        if let duration = userPreferences["workoutDuration"] as? String {
-            context += "Duration: \(duration). "
-        }
-        
-        // Add body focus
-        if let focus = userPreferences["bodyFocus"] as? String {
-            context += "Focus: \(focus). "
-        }
-        
-        // Add nutrition focus
-        if let nutrition = userPreferences["nutritionFocus"] as? String {
-            context += "Nutrition: \(nutrition). "
-        }
-        
-        // Add dietary restrictions
-        if let restriction = userPreferences["dietaryRestriction"] as? String {
-            context += "Diet: \(restriction). "
-        }
-        
-        // Add wellness focus
-        if let wellness = userPreferences["wellnessFocus"] as? String {
-            context += "Wellness: \(wellness). "
-        }
-        
-        // Add time frame
-        if let timeFrame = userPreferences["timeFrame"] as? String {
-            context += "TimeFrame: \(timeFrame). "
-        }
-        
-        return context
-    }
-    
-    private func loadUserMemory() {
-        // Load from UserDefaults or other storage
-        if let data = UserDefaults.standard.data(forKey: "userMemory"),
-           let memory = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            conversationMemory = memory
-        }
-        
-        if let data = UserDefaults.standard.data(forKey: "userPreferences"),
-           let preferences = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            userPreferences = preferences
-        }
-        
-        // Note: Timestamps are stored as ISO8601 strings and can be converted back to Date if needed:
-        // let dateFormatter = ISO8601DateFormatter()
-        // if let timestampString = memoryEntry["timestamp"] as? String,
-        //    let date = dateFormatter.date(from: timestampString) {
-        //     // Use the date
-        // }
-    }
-    
-    private func saveUserMemory() {
-        // Save to UserDefaults
-        if let data = try? JSONSerialization.data(withJSONObject: conversationMemory) {
-            UserDefaults.standard.set(data, forKey: "userMemory")
-        }
-        
-        if let data = try? JSONSerialization.data(withJSONObject: userPreferences) {
-            UserDefaults.standard.set(data, forKey: "userPreferences")
-        }
-    }
-    
-    func updateWorkoutContext(exercise: String? = nil, currentSet: Int? = nil, totalSets: Int? = nil, currentRep: Int? = nil, formScore: Int? = nil) {
-        currentWorkoutContext = WorkoutContext(
-            exercise: exercise,
-            currentSet: currentSet,
-            totalSets: totalSets,
-            currentRep: currentRep,
-            formScore: formScore,
-            userQuestion: nil
+        // Create enhanced UserDataContext with comprehensive data
+        let userDataContext = UserDataContext(
+            profile: comprehensiveProfile,
+            healthData: healthData,
+            workoutSessions: recentWorkouts,
+            todayCalories: healthKitManager.getTodayCalories(),
+            todaySteps: healthKitManager.getTodayStepCount(),
+            todayDistance: healthKitManager.getTodayStepDistance(),
+            moveGoal: healthData.moveGoal,
+            averageFormScore: healthKitManager.getAverageFormScore(),
+            aiCoachFeedback: aiCoachFeedback.feedback,
+            conversationHistory: conversationHistory
         )
         
-        // Add to workout history
-        if let exercise = exercise {
-            let workoutEntry: [String: Any] = [
-                "exercise": exercise,
-                "timestamp": ISO8601DateFormatter().string(from: Date()),
-                "sets": totalSets ?? 0,
-                "formScore": formScore ?? 0
+        // Debug: Print the actual data being sent to AI
+        print("🤖 AI DATA CONTEXT (AICoachViewModel):")
+        print("   - Today's Calories: \(userDataContext.todayCalories)")
+        print("   - Today's Steps: \(userDataContext.todaySteps)")
+        print("   - Today's Distance: \(userDataContext.todayDistance)")
+        print("   - Move Goal: \(userDataContext.moveGoal)")
+        print("   - Average Form Score: \(userDataContext.averageFormScore)")
+        print("   - Health Data Available: \(userDataContext.healthData != nil)")
+        print("   - Workout Sessions: \(userDataContext.workoutSessions.count)")
+        
+        return userDataContext
+    }
+    
+    // MARK: - Profile Updates from Conversations
+    
+    private func updateUserProfileFromConversation(userInput: String) {
+        let input = userInput.lowercased()
+        
+        // Check if user is telling us their name
+        if input.contains("my name is") || input.contains("i'm ") || input.contains("i am ") || input.contains("call me") {
+            let namePatterns = [
+                "my name is (\\w+)",
+                "i'm (\\w+)",
+                "i am (\\w+)",
+                "call me (\\w+)"
             ]
-            workoutHistory.append(workoutEntry)
             
-            // Keep workout history manageable
-            if workoutHistory.count > 100 {
-                workoutHistory.removeFirst(20)
+            for pattern in namePatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let range = NSRange(location: 0, length: userInput.utf16.count)
+                    if let match = regex.firstMatch(in: userInput, options: [], range: range) {
+                        if let nameRange = Range(match.range(at: 1), in: userInput) {
+                            let name = String(userInput[nameRange]).capitalized
+                            UserProfileManager.shared.updateUserName(name)
+                            print("👤 AICoachViewModel: Detected and updated user name to '\(name)'")
+                        }
+                    }
+                }
             }
         }
     }
     
-    func updateUserProfile(fitnessLevel: OpenAIClient.UserProfile.FitnessLevel? = nil,
-                          goals: [OpenAIClient.UserProfile.FitnessGoal]? = nil,
-                          coachStyle: OpenAIClient.UserPreferences.CoachStyle? = nil,
-                          humorLevel: Int? = nil,
-                          technicalDetail: Int? = nil) {
-        if let level = fitnessLevel {
-            userProfile.fitnessLevel = level
-        }
-        if let newGoals = goals {
-            userProfile.goals = newGoals
-        }
-        if let style = coachStyle {
-            userProfile.preferences.coachStyle = style
-        }
-        if let humor = humorLevel {
-            userProfile.preferences.humorLevel = min(max(humor, 1), 5)
-        }
-        if let detail = technicalDetail {
-            userProfile.preferences.technicalDetail = min(max(detail, 1), 5)
-        }
-        
-        // Update preferences in memory
-        userPreferences["fitnessLevel"] = userProfile.fitnessLevel.rawValue
-        userPreferences["goals"] = userProfile.goals.map { $0.rawValue }
-        userPreferences["coachStyle"] = userProfile.preferences.coachStyle.rawValue
-        saveUserMemory()
-    }
-    
-    // MARK: - Memory Management
-    func clearMemory() {
-        conversationMemory.removeAll()
-        userPreferences.removeAll()
-        workoutHistory.removeAll()
-        UserDefaults.standard.removeObject(forKey: "userMemory")
-        UserDefaults.standard.removeObject(forKey: "userPreferences")
-    }
+    // MARK: - Memory Management (for UI)
     
     func getMemoryStats() -> [String: Int] {
+        // Get stats from the proper singletons
         return [
-            "conversations": conversationMemory.count,
-            "preferences": userPreferences.count,
-            "workouts": workoutHistory.count
+            "conversations": ConversationMemory.shared.messages.count,
+            "totalMessages": ConversationMemory.shared.messages.count
         ]
     }
     
-    // MARK: - Enhanced Prompt Handling
+    func clearMemory() {
+        // Clear conversation history
+        // Note: This clears the UI messages, not the persistent ConversationMemory
+        messages.removeAll()
+        setupInitialGreeting()
+        print("🗑️ AICoachViewModel: Chat UI cleared")
+    }
 }
-
-// MARK: - Supporting Types
-struct ChatMessage: Identifiable, Equatable {
-    let id: UUID
-    let text: String
-    let isUser: Bool
-    let type: MessageType
-    let timestamp: Date
-    
-    enum MessageType: Equatable {
-        case normal
-        case greeting
-        case typing
-        case response
-        case error
-    }
-    
-    init(id: UUID = UUID(), text: String, isUser: Bool, type: MessageType = .normal, timestamp: Date) {
-        self.id = id
-        self.text = text
-        self.isUser = isUser
-        self.type = type
-        self.timestamp = timestamp
-    }
-    
-    static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {
-        lhs.id == rhs.id &&
-        lhs.text == rhs.text &&
-        lhs.isUser == rhs.isUser &&
-        lhs.type == rhs.type &&
-        lhs.timestamp == rhs.timestamp
-    }
-} 
