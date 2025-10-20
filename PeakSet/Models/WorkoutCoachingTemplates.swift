@@ -170,24 +170,31 @@ class WorkoutCoachingTemplates {
     }
     
     /// Get detailed form instructions for each exercise type
-    /// Only squats and deadlifts get detailed pre-workout instructions
+    /// Based on Starting Strength, NSCA, and ACE certified methodologies
     private func getExerciseTips(exercise: String) -> String {
         switch exercise.lowercased() {
         case "squats", "squat":
             return """
             To start, you want to make sure you stand with your feet shoulder-width apart, toes slightly pointed out. \
-            Keep your chest up and core engaged. Lower down by pushing your hips back and bending your knees, \
-            keeping your weight on your heels. Go down until your thighs are parallel to the floor, then drive \
-            through your heels to stand back up. I'll be watching for proper depth, knee alignment, and keeping \
-            your chest up throughout the movement.
+            Take a big breath and brace your core like someone's about to punch you in the stomach. Keep your chest up and eyes forward. \
+            Lower down by pushing your hips back first, then bending your knees. Think of sitting back into a chair. \
+            Keep your weight on your heels and mid-foot, never on your toes. Your knees should track over your toes, not caving in. \
+            Go down until your hip crease is below your knee, then drive through your heels to stand back up. \
+            Think about spreading the floor apart with your feet on the way up. \
+            I'll be watching for proper depth, knee alignment, back angle, and keeping your chest up throughout the movement.
             """
             
         case "deadlifts", "deadlift":
             return """
-            Stand with your feet hip-width apart, barbell over your mid-foot. Bend at your hips and knees to \
-            grip the bar just outside your legs. Keep your chest up, back flat, and core tight. Drive through \
-            your heels to stand up, keeping the bar close to your body. Lower with control. I'll be watching \
-            your back position, hip hinge, and bar path.
+            Stand with your feet hip-width apart, barbell over your mid-foot. The bar should be about an inch from your shins. \
+            Bend at your hips first, then bend your knees to grip the bar just outside your legs. \
+            Before you pull, make sure your back is flat, not rounded. Your chest should be up and shoulders should be over or slightly in front of the bar. \
+            Take a big breath, brace your core, and pull the slack out of the bar. \
+            Drive through your heels and think about pushing the floor away with your legs, not pulling with your back. \
+            Keep the bar close to your body, dragging it up your shins and thighs. Your hips and shoulders should rise together. \
+            At the top, stand tall and squeeze your glutes, but don't hyperextend your back. \
+            Lower with control by pushing your hips back first, then bending your knees. \
+            I'll be watching your back position, hip hinge pattern, bar path, and lockout position.
             """
             
         default:
@@ -195,6 +202,268 @@ class WorkoutCoachingTemplates {
             return ""
         }
     }
+    
+    // MARK: - Professional Coaching Cue Libraries
+    // Based on Starting Strength, NSCA Guidelines, and ACE Standards
+    
+    /// Comprehensive squat coaching cues organized by phase and issue
+    private let squatCoachingLibrary: [String: [String: [String]]] = [
+        "setup": [
+            "stance": [
+                "Feet shoulder-width apart",
+                "Point your toes out slightly, about 30 degrees",
+                "Find a stable stance, you should feel balanced",
+                "Imagine screwing your feet into the ground"
+            ],
+            "breathing": [
+                "Take a big breath into your belly",
+                "Brace your core tight",
+                "Hold that breath for the rep",
+                "Core tight like you're about to get punched"
+            ],
+            "posture": [
+                "Chest up, eyes forward",
+                "Shoulders back and down",
+                "Neutral spine, no rounding",
+                "Think proud chest throughout"
+            ]
+        ],
+        "descent": [
+            "hip_initiation": [
+                "Hips back first",
+                "Think sitting back into a chair",
+                "Push your butt back",
+                "Hip hinge first, then knees bend"
+            ],
+            "knee_tracking": [
+                "Knees track over your toes",
+                "Push your knees out to the sides",
+                "Think knees out, not in",
+                "Spread the floor with your feet"
+            ],
+            "depth": [
+                "Go down until hip crease breaks parallel to knee",
+                "Full depth, no half reps",
+                "Get that depth",
+                "Below parallel"
+            ],
+            "balance": [
+                "Weight on your heels and mid-foot",
+                "Keep your heels planted",
+                "Don't let your heels come up",
+                "Press through your whole foot"
+            ],
+            "speed": [
+                "Control the descent",
+                "Don't drop too fast",
+                "Smooth and controlled",
+                "Take your time going down"
+            ]
+        ],
+        "bottom": [
+            "position": [
+                "Stay tight in the hole",
+                "Keep your chest up at the bottom",
+                "Don't collapse at the bottom",
+                "Maintain tension"
+            ],
+            "rebound": [
+                "Bounce out of the bottom",
+                "Use the stretch reflex",
+                "Powerful reversal",
+                "Don't pause too long"
+            ]
+        ],
+        "ascent": [
+            "drive": [
+                "Drive through your heels",
+                "Push the floor away",
+                "Hips and chest rise together",
+                "Explode up"
+            ],
+            "knee_position": [
+                "Keep those knees out",
+                "Push knees to the sides",
+                "Don't let knees cave in",
+                "Knees stay wide"
+            ],
+            "finish": [
+                "Stand all the way up",
+                "Full lockout",
+                "Squeeze your glutes at the top",
+                "Complete the rep"
+            ]
+        ]
+    ]
+    
+    /// Comprehensive deadlift coaching cues
+    private let deadliftCoachingLibrary: [String: [String: [String]]] = [
+        "setup": [
+            "bar_position": [
+                "Bar over mid-foot",
+                "Bar should be about an inch from your shins",
+                "Bar directly over the middle of your foot",
+                "Don't start with bar too far forward"
+            ],
+            "stance": [
+                "Feet hip-width apart",
+                "Toes pointed forward or slightly out",
+                "Find your pulling stance",
+                "Narrow stance for conventional"
+            ],
+            "grip": [
+                "Grip just outside your legs",
+                "Hands shoulder-width apart",
+                "Double overhand or mixed grip",
+                "Grip tight, squeeze the bar"
+            ],
+            "back_position": [
+                "Flat back, no rounding",
+                "Chest up before you pull",
+                "Shoulders over or slightly in front of bar",
+                "Neutral spine, look down slightly"
+            ],
+            "breathing": [
+                "Big breath into your belly",
+                "Brace your core hard",
+                "Hold your breath for the rep",
+                "Create intra-abdominal pressure"
+            ]
+        ],
+        "pull": [
+            "initiation": [
+                "Pull the slack out of the bar first",
+                "Create tension before you pull",
+                "Feel the weight in your hands",
+                "Tight body before moving"
+            ],
+            "leg_drive": [
+                "Push the floor away with your legs",
+                "Think leg press, not back pull",
+                "Legs drive first",
+                "Use your legs to break the floor"
+            ],
+            "bar_path": [
+                "Keep bar close to your body",
+                "Drag it up your shins",
+                "Bar should touch your legs",
+                "Straight vertical path"
+            ],
+            "hip_shoulder_sync": [
+                "Hips and shoulders rise together",
+                "Don't let hips shoot up first",
+                "Maintain your back angle",
+                "Stay over the bar"
+            ]
+        ],
+        "lockout": [
+            "finish": [
+                "Stand tall at the top",
+                "Squeeze your glutes",
+                "Shoulders back",
+                "Full hip extension"
+            ],
+            "avoid": [
+                "Don't hyperextend your back",
+                "Don't lean back too far",
+                "Just stand straight",
+                "Neutral position at top"
+            ]
+        ],
+        "descent": [
+            "control": [
+                "Control the weight down",
+                "Hips back first on the way down",
+                "Keep bar close",
+                "Don't just drop it"
+            ],
+            "reset": [
+                "Reset your position at the bottom",
+                "Full stop between reps",
+                "Re-grip if needed",
+                "Each rep starts from the floor"
+            ]
+        ]
+    ]
+    
+    /// Safety-critical coaching cues (immediate intervention)
+    /// Based on injury prevention research and professional standards
+    private let safetyCueLibrary: [FormIssue: [String]] = [
+        .kneeValgus: [
+            "STOP! Knees out to protect them!",
+            "Knees are caving - push them out now!",
+            "Critical: Drive knees out to avoid injury!",
+            "Knees out! This is important for joint safety!"
+        ],
+        .spinalFlexion: [
+            "STOP! Keep your back flat!",
+            "Back is rounding - straighten it now!",
+            "Critical: Neutral spine to protect your back!",
+            "Flat back! Don't round your spine!"
+        ],
+        .backAlignment: [
+            "Watch your back position!",
+            "Keep your back neutral!",
+            "Straighten your back!",
+            "Chest up, back flat!"
+        ],
+        .ankleStability: [
+            "Stabilize your ankles!",
+            "Keep your feet planted!",
+            "Don't roll your ankles!",
+            "Stay balanced on your feet!"
+        ],
+        .shoulderPosition: [
+            "Shoulders back and tight!",
+            "Keep shoulders in position!",
+            "Don't let shoulders round forward!",
+            "Shoulder position - stay tight!"
+        ],
+        .speed: [
+            "Slow down for control!",
+            "Too fast - control the weight!",
+            "Take your time, safety first!",
+            "Reduce speed, focus on form!"
+        ]
+    ]
+    
+    /// Progressive coaching sequences for beginners
+    /// Teaches proper movement patterns step-by-step
+    private let beginnerProgressionCues: [String: [String]] = [
+        "squat_sequence": [
+            "First, practice just the hip hinge - push your hips back",
+            "Good! Now add the knee bend while keeping hips back",
+            "Perfect! Now let's work on depth - go lower",
+            "Great! Now focus on keeping those knees out",
+            "Excellent! Now let's work on the drive up through your heels"
+        ],
+        "deadlift_sequence": [
+            "First, practice finding the bar position over mid-foot",
+            "Good! Now practice the hip hinge - hips back, chest up",
+            "Perfect! Now grip the bar and create tension",
+            "Great! Now practice the leg drive - push floor away",
+            "Excellent! Now let's work on keeping the bar close to your body"
+        ]
+    ]
+    
+    /// Advanced coaching cues for experienced lifters
+    /// Focuses on optimization and performance
+    private let advancedCoachingCues: [String: [String]] = [
+        "squat_optimization": [
+            "Think about creating torque by screwing your feet into the floor",
+            "Maximize stretch reflex at the bottom - don't pause too long",
+            "Aggressive hip drive out of the hole",
+            "Maintain thoracic extension throughout the lift",
+            "Use the valsalva maneuver for maximum core stability"
+        ],
+        "deadlift_optimization": [
+            "Think about rowing the bar into your body",
+            "Maximize lat engagement - pull shoulders back and down",
+            "Generate maximum tension before breaking the floor",
+            "Think about pushing the floor away, not lifting the bar",
+            "Maintain constant bar velocity through the lift"
+        ]
+    ]
     
     // MARK: - Main Coaching Method
     
@@ -215,6 +484,48 @@ class WorkoutCoachingTemplates {
         }
         
         return nil
+    }
+    
+    /// Get professional coaching cue from curated library (new method)
+    /// Uses verified cues from Starting Strength, NSCA, and ACE methodologies
+    func getProfessionalCue(exercise: String, phase: FormAnalyzer.ExercisePhase, issue: String? = nil) -> String? {
+        let exerciseLower = exercise.lowercased()
+        
+        // Map phase to library key
+        let phaseKey: String
+        switch phase {
+        case .rest:
+            return nil // No cue during rest
+        case .starting:
+            phaseKey = "setup"
+        case .descent:
+            phaseKey = "descent"
+        case .bottom:
+            phaseKey = "bottom"
+        case .ascent:
+            phaseKey = "ascent"
+        }
+        
+        // Select appropriate library
+        let library: [String: [String: [String]]]?
+        if exerciseLower.contains("squat") {
+            library = squatCoachingLibrary
+        } else if exerciseLower.contains("deadlift") {
+            library = deadliftCoachingLibrary
+        } else {
+            return nil
+        }
+        
+        guard let phaseLib = library?[phaseKey] else { return nil }
+        
+        // If specific issue provided, get targeted cue
+        if let issue = issue, let issueCues = phaseLib[issue] {
+            return issueCues.randomElement()
+        }
+        
+        // Otherwise, get general cue for this phase
+        let allCues = phaseLib.values.flatMap { $0 }
+        return allCues.randomElement()
     }
     
     func generateRepCountCue(repNumber: Int, formScore: Double, context: CoachingContext) -> String {
@@ -790,6 +1101,12 @@ class WorkoutCoachingTemplates {
     // MARK: - Contextual Selection Logic
     
     private func selectSafetyCue(issue: FormIssue, severity: Double, context: CoachingContext) -> String {
+        // Use professional safety cue library first for critical issues
+        if severity > 0.8, let safetyCues = safetyCueLibrary[issue] {
+            return selectUnusedTemplate(from: safetyCues)
+        }
+        
+        // Fall back to existing templates for less severe issues
         let templates: [String]
         
         switch issue {
